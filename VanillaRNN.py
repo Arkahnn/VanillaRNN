@@ -138,12 +138,12 @@ class MyRNN:
             #Training set computation
             random.shuffle(idxTrain)
             print('Train dimension: ', len(self.train))
-            print('Iteration range: ', len(self.train)//100)
+            print('Iteration range: ', len(self.train)//500)
             
-            for j in range(len(self.train)//100):
+            for j in range(len(self.train)//500):
                 #self.S[j*300:j*300+299,t,:],self.O[j*300:j*300+299,t,:] = self.fwdRnn(self.X[j*300:j*300+299,t,:],self.S[j*300:j*300+299,t,:],self.O[j*300:j*300+299,t,:])
-                print('Iteration limits: [', j*500, ', ', j*100+500,')')
-                self.init_mainParam([self.train[idxTrain[k]] for k in range(j*100,j*100+500)])
+                print('Iteration limits: [', j*500, ', ', j*500+500,')')
+                self.init_mainParam([self.train[idxTrain[k]] for k in range(j*500,j*500+500)])
                 self.S, self.O = self.fwdRnn(self.X, self.S, self.O)
                 self.V, self.U, self.W = self.bwRnn()
                 lossT += self.lossFunction()
