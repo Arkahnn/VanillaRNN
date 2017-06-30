@@ -6,7 +6,7 @@ from Tools import*
 
 class MyRNN:
     #Parameters
-    N = T = D = H = eta = 0
+    N = T = D = H = eta = Ntrain = 0
     
     #Variables
     X = Y = O = S = np.empty((N,T))
@@ -24,6 +24,7 @@ class MyRNN:
         #N = len(train) + len(valid) + len(test)
         self.T = max(len(s) for s in (train + valid + test)) + 2
         self.H, self.eta = H, eta
+        self.Ntrain = len(train)
         # Weight assignment
         wgtD = self.D ** (-0.5)
         wgtH = self.H ** (-0.5)
@@ -34,7 +35,7 @@ class MyRNN:
         
     def init_mainParam(self, data):
         self.N = len(data)
-        print('N dimension: ', self.N)
+        #print('N dimension: ', self.N)
         # Preparation of X
         self.X = np.zeros((self.N, self.T, self.D))
         self.X[:, 0, 0] = 1
@@ -73,16 +74,16 @@ class MyRNN:
         # prod = eta*(-1/N)*Y*(1-O)
         # Aggiornare V
         # Vnew = V - eta*(-1/N)*np.dot((Y*(1-O)).T,S)
-        print('Inizio backward pass')
+        #print('Inizio backward pass')
         Y_ = self.Y * (1 - self.O)
         dV = np.tensordot(Y_.T, self.S, axes=((1, 2), (1, 0)))
-        c = self.eta * (-1 / (self.N * self.T * self.D))
+        c = self.eta * (-1 / (self.Ntrain * self.T * self.D))
         Vnew = self.V - c * dV
         # print('Valore vecchio di V: ', self.V)
         # print('Valore di dV: ',dV)
         # print('Valore nuovo di V: ',Vnew)
         
-        print('Inizio ad aggiornare U e W')
+        #print('Inizio ad aggiornare U e W')
         S0 = np.zeros(self.S.shape)
         S0[:, 1:, :] = self.S[:, :-1, :] 
         deTanh1 = 1 - self.S
@@ -137,7 +138,7 @@ class MyRNN:
             print('Epoch ',i,':')
             #Training set computation
             random.shuffle(idxTrain)
-            print('Train dimension: ', len(self.train))
+            #print('Train dimension: ', len(self.train))
             print('Iteration range: ', len(self.train)//500)
             
             for j in range(len(self.train)//500):
@@ -148,15 +149,17 @@ class MyRNN:
                 self.V, self.U, self.W = self.bwRnn()
                 lossT += self.lossFunction()
             lossTrain += [lossT]
+            lossT = 0
             
             #Validation set computation
             self.init_mainParam(self.valid)
-            lossVal += [self.lossFunction(self.Y, self.O, self.N)]
+            self.fwdRnn(self.X, self.S, self.O)
+            lossVal += [self.lossFunction()]
     
         return (lossTrain, lossVal)
     
     def test_step(self):
         self.init_mainParam(self.test)
         self.fwdRnn(self.X, self.S, self.O)
-        lossTest = self.lossFunction(self.Y, self.O, self.N)
+        lossTest = self.lossFunction()
         return lossTest

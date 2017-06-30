@@ -22,8 +22,23 @@ def __main__():
     #Test the RNN
     lossTest = myRnn.test_step()
     
-    t = list(range(10))
-    plt.plot(t, lossTrain, 'ro', t, lossVal, 'g^')
+    loss = ''
+    for s in lossTrain:
+        loss += str(s) + ', '
+    file = open('lossTrain.txt', 'w')
+    file.write(loss)
+    file.close()
+    
+    loss = ''
+    for s in lossVal:
+        loss += str(s) + ', '
+    file = open('lossVal.txt', 'w')
+    file.write(loss)
+    file.close()
+    print('Loss value of the test set: ', lossTest)
+    
+    #t = list(range(10))
+    plt.plot([range(len(lossTrain))], lossTrain, 'ro', [range(len(lossVal))], lossVal, 'g^')
     plt.xlabel('time')
     plt.ylabel('loss value')
     plt.title('Loss function computation')
