@@ -20,22 +20,28 @@ def __main__():
     
     print('Test the RNN')
     #Test the RNN
-    lossTest = myRnn.test_step()
+    lossTest, accTest = myRnn.test_step()
     
-    loss = ''
+    #Save last weights in a file
+    np.savetxt('Vmat.txt', myRnn.V, delimiter=',')
+    np.savetxt('Umat.txt', myRnn.U, delimiter=',')
+    np.savetxt('Wmat.txt', myRnn.W, delimiter=',')
+    
+    lossA = ''
     for s in lossTrain:
-        loss += str(s) + ', '
+        lossA += str(s) + ', '
     file = open('lossTrain.txt', 'w')
-    file.write(loss)
+    file.write(lossA)
     file.close()
     
-    loss = ''
+    lossB = ''
     for s in lossVal:
-        loss += str(s) + ', '
+        lossB += str(s) + ', '
     file = open('lossVal.txt', 'w')
-    file.write(loss)
+    file.write(lossB)
     file.close()
     print('Loss value of the test set: ', lossTest)
+    print('Accuracy value of the test set: ', accTest)
     
     #t = list(range(10))
     plt.plot([range(len(lossTrain))], lossTrain, 'ro', [range(len(lossVal))], lossVal, 'g^')

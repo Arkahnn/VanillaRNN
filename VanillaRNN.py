@@ -162,4 +162,15 @@ class MyRNN:
         self.init_mainParam(self.test)
         self.fwdRnn(self.X, self.S, self.O)
         lossTest = self.lossFunction()
-        return lossTest
+        accTest = self.accuracy()
+        return (lossTest, accTest)
+    
+    def accuracy(self):
+        compRes = O_ = Y_ = np.zeros((self.N,self.T))
+        O_ = self.O.argmax(axis = 2)
+        Y_ = self.Y.argmax(axis = 2)
+        compRes = Y_ == O_
+        return compRes.sum()/(self.N*self.T)
+                
+                
+                
