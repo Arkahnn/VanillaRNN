@@ -59,32 +59,36 @@ class MyRNN:
         self.Y[:, -1:, 2] = 1
         self.S = np.zeros((self.N, self.T, self.H))
         self.O = np.zeros((self.N, self.T, self.D))
-
+        # Forward pass of the RNN
     def fwdRnn(self, X, S, O):
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
         # 3. U,W,V = L(y,o)
 
-        # TODO: add SGD
         for i in range(self.T):
             S[:, i, :] = self.outHL(X[:, i, :].T, S[:, i - 1, :].T).T
             O[:, i, :] = self.softmax(self.V.dot(S[:, i, :].T)).T
         return (S, O)
 
+    # Backward pass of the RNN
     def bwRnn(self):
         # prod = eta*(-1/N)*Y*(1-O)
         # Aggiornare V
         # Vnew = V - eta*(-1/N)*np.dot((Y*(1-O)).T,S)
-        # print('Inizio backward pass')
+        #print('Inizio backward pass')
+
+        #Evaluation of dLdV
         Y_ = self.Y * (1 - self.O)
-        dV = np.tensordot(Y_.T, self.S, axes=((1, 2), (1, 0)))
-        c = self.eta * (-1 / (self.Ntrain * self.T * self.D))
-        Vnew = self.V - c * dV
+        dLdV = np.tensordot(Y_.T, self.S, axes=((1, 2), (1, 0)))
+        c = self.eta * (-1 / (self.Ntrain * self.T * self.D)) #Constant value including eta and 1/n
+        #New matrix V
+        Vnew = self.V - c * dLdV
         # print('Valore vecchio di V: ', self.V)
         # print('Valore di dV: ',dV)
         # print('Valore nuovo di V: ',Vnew)
-
         # print('Inizio ad aggiornare U e W')
+
+        #Evaluation of dLdU
         S0 = np.zeros(self.S.shape)
         S0[:, 1:, :] = self.S[:, :-1, :]
         deTanh1 = 1 - self.S
@@ -92,14 +96,14 @@ class MyRNN:
         Y_2 = np.tensordot(Y_, self.V, axes=(2, 0))  # returns an NxTxH matrix
         Y_3 = np.tensordot(Y_2, deTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         S0_ = np.tensordot(deTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
-        dU = Y_3.dot(S0_)
-        Unew = self.U - c * dU
+        dLdU = Y_3.dot(S0_)
+        Unew = self.U - c * dLdU
         # print('U aggiornato con dimensioni = ',Unew.shape)
 
-
+        # Evaluation of dLdW
         SS0_ = np.tensordot(deTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        dW = Y_3.dot(SS0_)  # returns an HxH matrix
-        Wnew = self.W - c * dW
+        dLdW = Y_3.dot(SS0_)  # returns an HxH matrix
+        Wnew = self.W - c * dLdW
         # print('W aggiornato con dimensione = ',Wnew.shape)
 
         return (Vnew, Unew, Wnew)
@@ -109,8 +113,7 @@ class MyRNN:
         return np.tanh(self.U.dot(x) + self.W.dot(s_prev))
 
     # Function that implements the softmax computation
-    def softmax(self, s):
-        # TODO: sum and max over the correct axis
+    def softmax(self,s):
         # Softmax over 2D-matrix if D dimension is on axis = 0
         s -= np.amax(s, axis=0)
         s = np.exp(s)
@@ -129,9 +132,10 @@ class MyRNN:
 
     # Function that implements the forward step in the RNN
     def training_step(self, K):
-        lossTrain = lossVal = []
-        lossT = 0.0
-        # self.init_mainParam(self.train)
+        lossTrain = []
+        lossVal = []
+        lossT = 0
+        #self.init_mainParam(self.train)
         idxTrain = list(range(len(self.train)))
 
         for i in range(K):
@@ -162,4 +166,11 @@ class MyRNN:
         self.init_mainParam(self.test)
         self.fwdRnn(self.X, self.S, self.O)
         lossTest = self.lossFunction()
-        return lossTest
+        accTest = self.accuracy()
+        return lossTest, accTest
+
+    def accuracy(self):
+        O_ = self.O.argmax(axis=2)
+        Y_ = self.Y.argmax(axis=2)
+        compRes = Y_ == O_
+        return compRes.sum()/(self.N*self.T)
