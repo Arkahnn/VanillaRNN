@@ -88,6 +88,8 @@ class MyRNN:
         # print('Valore nuovo di V: ',Vnew)
         
         #print('Inizio ad aggiornare U e W')
+
+        #Evaluation of dLdU
         S0 = np.zeros(self.S.shape)
         S0[:, 1:, :] = self.S[:, :-1, :] 
         deTanh1 = 1 - self.S
@@ -99,7 +101,7 @@ class MyRNN:
         Unew = self.U - c * dLdU
         # print('U aggiornato con dimensioni = ',Unew.shape)
 
-
+        # Evaluation of dLdW
         SS0_ = np.tensordot(deTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dLdW = Y_3.dot(SS0_)  # returns an HxH matrix
         Wnew = self.W - c * dLdW
