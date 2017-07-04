@@ -64,8 +64,7 @@ class MyRNN:
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
         # 3. U,W,V = L(y,o)
-        
-        # TODO: add SGD
+
         for i in range(self.T):
             S[:, i, :] = self.outHL(X[:, i, :].T, S[:, i - 1, :].T).T
             O[:, i, :] = self.softmax(self.V.dot(S[:, i, :].T)).T
@@ -77,9 +76,12 @@ class MyRNN:
         # Aggiornare V
         # Vnew = V - eta*(-1/N)*np.dot((Y*(1-O)).T,S)
         #print('Inizio backward pass')
+
+        #Evaluation of dLdV
         Y_ = self.Y * (1 - self.O)
         dLdV = np.tensordot(Y_.T, self.S, axes=((1, 2), (1, 0)))
         c = self.eta * (-1 / (self.Ntrain * self.T * self.D)) #Constant value including eta and 1/n
+        #New matrix V
         Vnew = self.V - c * dLdV
         # print('Valore vecchio di V: ', self.V)
         # print('Valore di dV: ',dV)
@@ -96,8 +98,8 @@ class MyRNN:
         dLdU = Y_3.dot(S0_)
         Unew = self.U - c * dLdU
         # print('U aggiornato con dimensioni = ',Unew.shape)
-        
-        
+
+
         SS0_ = np.tensordot(deTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dLdW = Y_3.dot(SS0_)  # returns an HxH matrix
         Wnew = self.W - c * dLdW
