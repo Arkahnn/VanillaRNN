@@ -33,7 +33,8 @@ def printResults():
 
     lossTrain = train.split(' ')
     lossTrain = lossTrain[:-1]
-    lossTrain = [float(x)/100 for x in lossTrain] #It's no needed in the final version
+    lossTrain = [float(x)/100 for x in lossTrain] #It's no needed in the final version, except for float conversion
+    #lossTrain = [float(x) for x in lossTrain] #Version needed in the final version
     print('LossTrain: ', lossTrain)
     lossVal = val.split(' ')
     lossVal = lossVal[:-1]
