@@ -23,6 +23,11 @@ if __name__ == "__main__":
     # Test the RNN
     lossTest = myRnn.test_step()
 
+    # Save last weights in a file
+    np.savetxt('Vmat.txt', myRnn.V, delimiter=',')
+    np.savetxt('Umat.txt', myRnn.U, delimiter=',')
+    np.savetxt('Wmat.txt', myRnn.W, delimiter=',')
+
     loss = ''
     for s in lossTrain:
         loss += str(s) + ', '

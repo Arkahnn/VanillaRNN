@@ -59,7 +59,8 @@ class MyRNN:
         self.Y[:, -1:, 2] = 1
         self.S = np.zeros((self.N, self.T, self.H))
         self.O = np.zeros((self.N, self.T, self.D))
-        # Forward pass of the RNN
+
+    # Forward pass of the RNN
     def fwdRnn(self, X, S, O):
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
@@ -78,30 +79,26 @@ class MyRNN:
         #print('Inizio backward pass')
 
         #Evaluation of dLdV
-        Y_ = self.Y * (1 - self.O)
-        dLdV = np.tensordot(Y_.T, self.S, axes=((1, 2), (1, 0)))
+        dLdO = self.Y * (1 - self.O)
+        dLdV = np.tensordot(dLdO.T, self.S, axes=((1, 2), (1, 0)))
         c = self.eta * (-1 / (self.Ntrain * self.T * self.D)) #Constant value including eta and 1/n
         #New matrix V
         Vnew = self.V - c * dLdV
-        # print('Valore vecchio di V: ', self.V)
-        # print('Valore di dV: ',dV)
-        # print('Valore nuovo di V: ',Vnew)
-        # print('Inizio ad aggiornare U e W')
 
         #Evaluation of dLdU
         S0 = np.zeros(self.S.shape)
         S0[:, 1:, :] = self.S[:, :-1, :]
-        deTanh1 = 1 - self.S
-        deTanh2 = 1 + self.S
-        Y_2 = np.tensordot(Y_, self.V, axes=(2, 0))  # returns an NxTxH matrix
-        Y_3 = np.tensordot(Y_2, deTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        S0_ = np.tensordot(deTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
+        dSdW = 1 - self.S
+        dSdU = 1 + self.S
+        Y_2 = np.tensordot(dLdO, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        Y_3 = np.tensordot(Y_2, dSdW, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        S0_ = np.tensordot(dSdU, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
         dLdU = Y_3.dot(S0_)
         Unew = self.U - c * dLdU
         # print('U aggiornato con dimensioni = ',Unew.shape)
 
         # Evaluation of dLdW
-        SS0_ = np.tensordot(deTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        SS0_ = np.tensordot(dSdU, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dLdW = Y_3.dot(SS0_)  # returns an HxH matrix
         Wnew = self.W - c * dLdW
         # print('W aggiornato con dimensione = ',Wnew.shape)
@@ -152,7 +149,7 @@ class MyRNN:
                 self.S, self.O = self.fwdRnn(self.X, self.S, self.O)
                 self.V, self.U, self.W = self.bwRnn()
                 lossT += self.lossFunction()
-            lossTrain += [lossT]
+            lossTrain += [lossT/100]
             lossT = 0
 
             # Validation set computation

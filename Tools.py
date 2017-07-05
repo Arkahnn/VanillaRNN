@@ -26,7 +26,10 @@ def build_dictionary(dataset):
     strings = body.split('\n')
     n_phrases = len(strings)
 
-    words = [s.split(' ') for s in strings]
+    #words = [s.split(' ') for s in strings] # Non funziona, restituisce una lista di liste e non serve a niente!
+    words = []
+    for s in strings:
+        words += s.split(' ')
     dictionary = sorted(set(words))
     dictionary = ['<startW>', '<endW>', '<NaW>'] + dictionary
 
@@ -41,6 +44,12 @@ def build_dictionary(dataset):
 
     return dictionary, stringTrain, stringValid, stringTest
 
+def importMatrix():
+    V = np.loadtxt('Vmat.txt', delimiter=',')
+    U = np.loadtxt('Umat.txt', delimiter=',')
+    W = np.loadtxt('Wmat.txt', delimiter=',')
+
+    return V, U, W
 
 # #Function that build the dictionary ad the data set
 # def build_Dictionary(train_set,test_set):
