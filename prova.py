@@ -32,16 +32,21 @@ def printResults():
     val = val.replace(',', '')
 
     lossTrain = train.split(' ')
-    lossTrain = [float(i) for i in lossTrain]
-    lossVal = val.split('\n')
-    lossVal = [float(i) for i in lossVal]
+    lossTrain = lossTrain[:-1]
+    lossTrain = [float(x)/100 for x in lossTrain] #It's no needed in the final version
+    print('LossTrain: ', lossTrain)
+    lossVal = val.split(' ')
+    lossVal = lossVal[:-1]
+    lossVal = [float(x) for x in lossVal]
+    print('LossVal: ', lossVal)
+    num = list(range(K))
 
-    plt.plot([range(len(lossTrain))], lossTrain, 'ro', [range(len(lossVal))], lossVal, 'g^')
+    plt.plot(num, lossTrain, 'ro', num, lossVal, 'g^')
     plt.xlabel('time')
     plt.ylabel('loss value')
     plt.title('Loss function computation')
     plt.grid(True)
-    # plt.savefig("test.png")
+    plt.savefig("test.png")
     plt.show()
 
 
