@@ -43,10 +43,13 @@ class MyRNN:
         self.X[:, 1:, 2] = 1
 
         for s in data:
-            i = data.index(s)
-            for w in s:
-                j = s.index(w) + 1
-                k = self.dictionary.index(w)
+            i = data.index(s) #Index of the phrase
+            j, k = 0, 0
+            for j in range(len(s)):
+                # j = s.index(w) + 1  # Index of the word in the phrase +1 for the <startWD> token
+                w = s[j]
+                j += 1
+                k = self.dictionary.index(w) #Index of the word in the dictionary
                 self.X[i, j, k] = 1
                 self.X[i, j, 2] = 0
 

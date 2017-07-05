@@ -43,12 +43,14 @@ if __name__ == "__main__":
     file.close()
     print('Loss value of the test set: ', lossTest)
 
-    # t = list(range(10))
-    plt.plot([range(len(lossTrain))], lossTrain, 'ro', [range(len(lossVal))], lossVal, 'g^')
+    t = list(range(K))
+    plt.plot(t, lossTrain, 'ro', label='Training Set')
+    plt.plot(t, lossVal, 'g^', label='Validation Set')
     plt.xlabel('time')
     plt.ylabel('loss value')
     plt.title('Loss function computation')
     plt.grid(True)
+    plt.legend()
     # plt.savefig("test.png")
     plt.show()
 
