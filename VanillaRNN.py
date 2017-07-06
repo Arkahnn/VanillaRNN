@@ -7,7 +7,7 @@ from Tools import *
 
 class MyRNN:
     # Parameters
-    N = T = D = H = eta = Ntrain = 0
+    N = T = D = H = eta = n_train = 0
 
     # Variables
     X = Y = O = S = np.empty((N, T))
@@ -16,23 +16,24 @@ class MyRNN:
     U = W = V = np.empty((D, H))
 
     # Input parameters
-    dictionary = train = valid = test = []
+    dictionary = train = val = test = []
 
-    def __init__(self, dictionary, train, valid, test, H, eta):
-        self.dictionary, self.train, self.valid, self.test = dictionary, train, valid, test
+    def __init__(self, dictionary, train, val, test, H, eta):
+        self.dictionary, self.train, self.val, self.test = dictionary, train, val, test
 
         self.D = len(dictionary)
-        # N = len(train) + len(valid) + len(test)
-        self.T = max(len(s) for s in (train + valid + test)) + 2
+        self.T = max(len(s) for s in (train + val + test)) + 2
         self.H, self.eta = H, eta
-        self.Ntrain = len(train)
-        # Weight assignment
+        self.n_train = len(train)
+        # print('Total number of phrases: ', self.N)
+
+        # Weight assignment with Glorot uniform
         wgtD = self.D ** (-0.5)
         wgtH = self.H ** (-0.5)
 
-        self.U = np.random.uniform(-wgtD, wgtD, (H, self.D))  # HxD matrix 
-        self.W = np.random.uniform(-wgtH, wgtH, (H, H))  # HxH matrix
-        self.V = np.random.uniform(-wgtH, wgtH, (self.D, H))  # DxH matrix
+        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
+        self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
 
     def init_mainParam(self, data):
         self.N = len(data)
@@ -40,7 +41,7 @@ class MyRNN:
         # Preparation of X
         self.X = np.zeros((self.N, self.T, self.D))
         self.X[:, 0, 0] = 1
-        self.X[:, 1:, 2] = 1
+        #self.X[:, 1:, 2] = 1
 
         for s in data:
             i = data.index(s) #Index of the phrase
@@ -51,17 +52,21 @@ class MyRNN:
                 j += 1
                 k = self.dictionary.index(w) #Index of the word in the dictionary
                 self.X[i, j, k] = 1
-                self.X[i, j, 2] = 0
+                #self.X[i, j, 2] = 0
 
-            self.X[i, j + 1, 2] = 0
+            #self.X[i, j + 1, 2] = 0
             self.X[i, j + 1, 1] = 1
 
         # Preparation of Y
         self.Y = np.zeros((self.N, self.T, self.D))
         self.Y[:, :-1, :] = self.X[:, 1:, :]
-        self.Y[:, -1:, 2] = 1
+        #self.Y[:, -1:, 2] = 1
         self.S = np.zeros((self.N, self.T, self.H))
         self.O = np.zeros((self.N, self.T, self.D))
+
+    # Function that implements the activation of the hidden layer
+    def outHL(self, x, s_prev):
+        return np.tanh(np.dot(self.U, x) + np.dot(self.W, s_prev))
 
     # Forward pass of the RNN
     def fwdRnn(self, X, S, O):
@@ -69,22 +74,17 @@ class MyRNN:
         # 2. o = sigma(Vs)
         # 3. U,W,V = L(y,o)
 
-        for i in range(self.T):
-            S[:, i, :] = self.outHL(X[:, i, :].T, S[:, i - 1, :].T).T
-            O[:, i, :] = self.softmax(self.V.dot(S[:, i, :].T)).T
-        return (S, O)
+        for t in range(self.T):
+            S[:, t, :] = self.outHL(X[:, t, :].T, S[:, t - 1, :].T).T
+            O[:, t, :] = self.softmax(self.V.dot(S[:, t, :].T)).T
+        return S, O
 
     # Backward pass of the RNN
     def bwRnn(self):
-        # prod = eta*(-1/N)*Y*(1-O)
-        # Aggiornare V
-        # Vnew = V - eta*(-1/N)*np.dot((Y*(1-O)).T,S)
-        #print('Inizio backward pass')
-
         #Evaluation of dLdV
-        dLdO = self.Y * (1 - self.O)
-        dLdV = np.tensordot(dLdO.T, self.S, axes=((1, 2), (1, 0)))
-        c = self.eta * (-1 / (self.Ntrain * self.T * self.D)) #Constant value including eta and 1/n
+        dLdO = self.Y * (1.0 - self.O)
+        dLdV = np.tensordot(dLdO, self.S, axes=((0, 1), (0, 1)))
+        c = self.eta * (-1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
         #New matrix V
         Vnew = self.V - c * dLdV
 
@@ -108,9 +108,6 @@ class MyRNN:
 
         return (Vnew, Unew, Wnew)
 
-    # Function that implements the activation of the hidden layer
-    def outHL(self, x, s_prev):
-        return np.tanh(self.U.dot(x) + self.W.dot(s_prev))
 
     # Function that implements the softmax computation
     def softmax(self,s):
@@ -131,32 +128,30 @@ class MyRNN:
         return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
 
     # Function that implements the forward step in the RNN
-    def training_step(self, K):
-        lossTrain = []
-        lossVal = []
-        lossT = 0
-        #self.init_mainParam(self.train)
-        idxTrain = list(range(len(self.train)))
+    def training_step(self, K, ):
+        lossTrain, lossVal = [], []
+        lossT = 0.0
+        idxTrain = list(range(self.n_train))
 
         for i in range(K):
             print('Epoch ', i, ':')
             # Training set computation
             random.shuffle(idxTrain)
             # print('Train dimension: ', len(self.train))
-            print('Iteration range: ', len(self.train) // 500)
+            print('Iteration range: ', len(self.train) // self.N)
 
-            for j in range(len(self.train) // 500):
-                # self.S[j*300:j*300+299,t,:],self.O[j*300:j*300+299,t,:] = self.fwdRnn(self.X[j*300:j*300+299,t,:],self.S[j*300:j*300+299,t,:],self.O[j*300:j*300+299,t,:])
-                print('Iteration limits: [', j * 500, ', ', j * 500 + 500, ')')
-                self.init_mainParam([self.train[idxTrain[k]] for k in range(j * 500, j * 500 + 500)])
+            for j in range(len(self.train) // self.N):
+                print('Iteration limits: [', j * self.N, ', ', j * self.N + self.N, ')')
+                self.init_mainParam([self.train[idxTrain[k]] for k in range(j * self.N, j * self.N + self.N)])
                 self.S, self.O = self.fwdRnn(self.X, self.S, self.O)
                 self.V, self.U, self.W = self.bwRnn()
                 lossT += self.lossFunction()
-            lossTrain += [lossT/100]
-            lossT = 0
+            #lossTrain += [lossT / 100]
+            lossTrain += [lossT / (self.n_train // self.N)]
+            lossT = 0.0
 
             # Validation set computation
-            self.init_mainParam(self.valid)
+            self.init_mainParam(self.val)
             self.fwdRnn(self.X, self.S, self.O)
             lossVal += [self.lossFunction()]
 
@@ -165,6 +160,7 @@ class MyRNN:
     def test_step(self):
         self.init_mainParam(self.test)
         self.fwdRnn(self.X, self.S, self.O)
+        print('N = ', self.N)
         lossTest = self.lossFunction()
         accTest = self.accuracy()
         return lossTest, accTest

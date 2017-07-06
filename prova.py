@@ -86,7 +86,7 @@ def printResults():
         strings += [words]
 
     print(words)
-    print(strings[0:2])
+    print(strings[0:20])
 
 
     '''

@@ -5,15 +5,16 @@ from Tools import *
 
 # This is the correct way to create a main function in Python (simply run it)
 if __name__ == "__main__":
-    K, eta, H_size, dimString = 10, 0.9, 100, 8
+    K, eta, H_size = 10, 0.9, 100
 
     print('Dataset creation')
     # Create dictionary
-    dictionary, train, valid, test = build_dictionary('Dataset.txt', dimString)
+    dictionary, train, valid, test = build_dictionary('Dataset.txt')
 
     print('RNN initialization')
     # Initialize RNN
     myRnn = MyRNN(dictionary, train, valid, test, H_size, eta)
+
 
     print('Train the RNN')
     # Train the RNN
