@@ -66,15 +66,15 @@ def printResults():
         phrase10 += myRnn.dictionary[Xidx[10, j]] + ' '
     print(phrase10)
     print(myRnn.test[10])
-    '''
+    
 
     input = prova_init_param(myRnn.test[9:12], myRnn.dictionary, myRnn.T, myRnn.D)
     Xidx = input.argmax(axis=2)
     print('Sequenza di input')
     print(Xidx[1,:])
-
-
     '''
+
+
     print('RNN Prediction')
     #Show some generated phrases
     Oidx = myRnn.O.argmax(axis=2)
@@ -86,8 +86,8 @@ def printResults():
         strings += [words]
 
     print(words)
-    print(strings[0])
-    '''
+    print(strings[0:2])
+
 
     '''
     train = import_file('lossTrain.txt')

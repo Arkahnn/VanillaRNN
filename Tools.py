@@ -10,14 +10,14 @@ def import_file(aFile):
     return body
 
 
-def build_list_strings(aList):
+def build_list_strings(aList, dimString):
     list_string_words = []
     for s in aList:
         list_string_words += [s.split(' ')]
-    return list_string_words
+    return [s for s in list_string_words if len(s) < dimString]
 
 
-def build_dictionary(dataset):
+def build_dictionary(dataset, dimString):
     body = import_file(dataset)
     # body = re.sub(r'[^\w]', ' ', body)
     body = body.replace(',', '')
@@ -38,9 +38,9 @@ def build_dictionary(dataset):
     # stringTest = strings[(len(strings)//2 + len(strings)//4):]
     print('Strings dimension: ', n_phrases)
     lim = 50000
-    stringTrain = build_list_strings(strings[:lim])
-    stringValid = build_list_strings(strings[lim:(lim + (n_phrases - lim) // 2)])
-    stringTest = build_list_strings(strings[(lim + (n_phrases - lim) // 2):])
+    stringTrain = build_list_strings(strings[:lim], dimString)
+    stringValid = build_list_strings(strings[lim:(lim + (n_phrases - lim) // 2)], dimString)
+    stringTest = build_list_strings(strings[(lim + (n_phrases - lim) // 2):], dimString)
 
     return dictionary, stringTrain, stringValid, stringTest
 
