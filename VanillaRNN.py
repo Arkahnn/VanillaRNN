@@ -18,6 +18,7 @@ class MyRNN:
     # Input parameters
     dictionary = train = val = test = []
 
+    # Main RNN constructor
     def __init__(self, dictionary, train, val, test, H, eta):
         self.dictionary, self.train, self.val, self.test = dictionary, train, val, test
 
@@ -35,6 +36,7 @@ class MyRNN:
         self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
         self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
 
+    # Main parameter initializator
     def init_mainParam(self, data):
         self.N = len(data)
         # print('N dimension: ', self.N)
@@ -82,8 +84,9 @@ class MyRNN:
     # Backward pass of the RNN
     def bwRnn(self):
         #Evaluation of dLdV
-        dLdO = self.Y * (1.0 - self.O)
-        dLdV = np.tensordot(dLdO, self.S, axes=((0, 1), (0, 1)))
+        dLdO = self.Y / self.O
+        dOdVS = self.O * (1.0 - self.O)
+        dLdV = np.tensordot(dLdO*dOdVS, self.S, axes=((0, 1), (0, 1)))
         c = self.eta * (-1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
         #New matrix V
         Vnew = self.V - c * dLdV
@@ -93,7 +96,7 @@ class MyRNN:
         S0[:, 1:, :] = self.S[:, :-1, :]
         dSdW = 1 - self.S
         dSdU = 1 + self.S
-        Y_2 = np.tensordot(dLdO, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        Y_2 = np.tensordot(dLdO*dOdVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
         Y_3 = np.tensordot(Y_2, dSdW, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         S0_ = np.tensordot(dSdU, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
         dLdU = Y_3.dot(S0_)
