@@ -85,7 +85,7 @@ class MyRNN:
     # Backward pass of the RNN
     def bwRnn(self):
         # Evaluation of dLdV
-        dLdO = self.Y / self.O
+        dLdO = -self.Y / self.O
         dOdVS = self.O * (1.0 - self.O)
         dLdV = np.tensordot(dLdO*dOdVS, self.S, axes=((0, 1), (0, 1)))
         c = self.eta * (-1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
@@ -97,8 +97,8 @@ class MyRNN:
         S0[:, 1:, :] = self.S[:, :-1, :]
         dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
         dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-        dLdV = np.tensordot(dLdO*dOdVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
-        dL_dargTanh1 = np.tensordot(dLdV, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dLdS = np.tensordot(dLdO * dOdVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        dL_dargTanh1 = np.tensordot(dLdS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
         dLdU = dL_dargTanh1.dot(dargTanh2_dU)
         # New matrix U

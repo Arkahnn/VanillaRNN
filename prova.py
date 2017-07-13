@@ -17,7 +17,7 @@ def prova_init_param(data, dictionary, T, D):
     # Preparation of X
     X = np.zeros((N, T, D))
     X[:, 0, 0] = 1
-    X[:, 1:, 2] = 1
+    #X[:, 1:, 2] = 1
 
     for s in data:
         i = data.index(s)  # Index of the phrase
@@ -30,9 +30,9 @@ def prova_init_param(data, dictionary, T, D):
             k = dictionary.index(w)  # Index of the word in the dictionary
             print('Parola w: ', w, '; indice in frase j: ', j,'indice in dizionario k: ', k)
             X[i, j, k] = 1
-            X[i, j, 2] = 0
+            #X[i, j, 2] = 0
 
-        X[i, j + 1, 2] = 0
+        #X[i, j + 1, 2] = 0
         X[i, j + 1, 1] = 1
 
     return X
@@ -58,6 +58,9 @@ def printResults():
 
     loss, acc = test_step2(myRnn)
 
+    output = phrase_generator(myRnn, 'No')
+    print(output)
+
     '''
     Xidx = myRnn.X.argmax(axis=2) #Matrice X in versione NxT in cui in posizione X[i,j] è presente l'indice della parola corrispondente
     print(Xidx[10,:])
@@ -74,7 +77,7 @@ def printResults():
     print(Xidx[1,:])
     '''
 
-
+    # Prova di stampa delle frasi predette col test set
     print('RNN Prediction')
     #Show some generated phrases
     Oidx = myRnn.O.argmax(axis=2)
@@ -118,5 +121,22 @@ def printResults():
     plt.savefig("test.png")
     plt.show()
     '''
+
+def phrase_generator(aRnn, startW):
+    output, w = '', ''
+    iter = 0
+
+    w = startW
+    output += w + ' '
+
+    while w != '<endW>' | iter < 10:
+        aRnn.init_mainParam([w])
+        aRnn.S, aRnn.O = aRnn.fwdRnn(aRnn.X, aRnn.S, aRnn.O)
+        w = aRnn.dictionary[aRnn.O.argmax()]
+        output += w + ' '
+        iter += 1
+
+    return output
+
 
 printResults()
