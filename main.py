@@ -5,7 +5,7 @@ from Tools import *
 
 # This is the correct way to create a main function in Python (simply run it)
 if __name__ == "__main__":
-    K, eta, H_size = 10, 0.9, 100
+    K, eta, H_size, mini_batch_size = 10, 0.9, 100, 500
 
     print('Dataset creation')
     # Create dictionary
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     print('Train the RNN')
     # Train the RNN
-    lossTrain, lossVal = myRnn.training_step(K)
+    lossTrain, lossVal = myRnn.training_step(K, mini_batch_size)
 
     print('Test the RNN')
     # Test the RNN

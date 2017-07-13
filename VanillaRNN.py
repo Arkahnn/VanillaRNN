@@ -50,11 +50,12 @@ class MyRNN:
             j, k = 0, 0
             for j in range(len(s)):
                 # j = s.index(w) + 1  # Index of the word in the phrase +1 for the <startWD> token
-                w = s[j]
-                j += 1
-                k = self.dictionary.index(w) #Index of the word in the dictionary
-                self.X[i, j, k] = 1
-                #self.X[i, j, 2] = 0
+                if s[j] != '':
+                    w = s[j]
+                    j += 1
+                    k = self.dictionary.index(w) #Index of the word in the dictionary
+                    self.X[i, j, k] = 1
+                    #self.X[i, j, 2] = 0
 
             #self.X[i, j + 1, 2] = 0
             self.X[i, j + 1, 1] = 1
@@ -83,15 +84,15 @@ class MyRNN:
 
     # Backward pass of the RNN
     def bwRnn(self):
-        #Evaluation of dLdV
+        # Evaluation of dLdV
         dLdO = self.Y / self.O
         dOdVS = self.O * (1.0 - self.O)
         dLdV = np.tensordot(dLdO*dOdVS, self.S, axes=((0, 1), (0, 1)))
         c = self.eta * (-1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
-        #New matrix V
+        # New matrix V
         Vnew = self.V - c * dLdV
 
-        #Evaluation of dLdU
+        # Evaluation of dLdU
         S0 = np.zeros(self.S.shape)
         S0[:, 1:, :] = self.S[:, :-1, :]
         dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
@@ -100,6 +101,7 @@ class MyRNN:
         dL_dargTanh1 = np.tensordot(dLdV, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
         dLdU = dL_dargTanh1.dot(dargTanh2_dU)
+        # New matrix U
         Unew = self.U - c * dLdU
         # print('U aggiornato con dimensioni = ',Unew.shape)
 
@@ -131,7 +133,7 @@ class MyRNN:
         return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
 
     # Function that implements the forward step in the RNN
-    def training_step(self, K, ):
+    def training_step(self, K, mini_batch_size):
         lossTrain, lossVal = [], []
         lossT = 0.0
         idxTrain = list(range(self.n_train))
@@ -140,7 +142,10 @@ class MyRNN:
             print('Epoch ', i, ':')
             # Training set computation
             random.shuffle(idxTrain)
-            # print('Train dimension: ', len(self.train))
+            #self.N = 500
+            self.N = mini_batch_size
+            print('Train dimension: ', len(self.train))
+            print('N dimension: ', self.N)
             print('Iteration range: ', len(self.train) // self.N)
 
             for j in range(len(self.train) // self.N):

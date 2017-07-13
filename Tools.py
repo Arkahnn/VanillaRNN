@@ -36,7 +36,7 @@ def build_dictionary(dataset):
     for s in strings:
         words += s.split(' ')
     dictionary = sorted(set(words))
-    #dictionary = dictionary[1:] #per rimuovere la stringa vuota
+    dictionary = dictionary[1:] #per rimuovere la stringa vuota
     dictionary = ['<startW>', '<endW>'] + dictionary
 
     # stringTrain = strings[:len(strings)//2]
