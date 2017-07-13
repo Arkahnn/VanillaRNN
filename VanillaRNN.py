@@ -94,18 +94,18 @@ class MyRNN:
         #Evaluation of dLdU
         S0 = np.zeros(self.S.shape)
         S0[:, 1:, :] = self.S[:, :-1, :]
-        dSdW = 1 - self.S
-        dSdU = 1 + self.S
-        Y_2 = np.tensordot(dLdO*dOdVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
-        Y_3 = np.tensordot(Y_2, dSdW, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        S0_ = np.tensordot(dSdU, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
-        dLdU = Y_3.dot(S0_)
+        dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
+        dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
+        dLdV = np.tensordot(dLdO*dOdVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        dL_dargTanh1 = np.tensordot(dLdV, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
+        dLdU = dL_dargTanh1.dot(dargTanh2_dU)
         Unew = self.U - c * dLdU
         # print('U aggiornato con dimensioni = ',Unew.shape)
 
         # Evaluation of dLdW
-        SS0_ = np.tensordot(dSdU, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        dLdW = Y_3.dot(SS0_)  # returns an HxH matrix
+        dargTanh2_dW = np.tensordot(dS_dargTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dLdW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
         Wnew = self.W - c * dLdW
         # print('W aggiornato con dimensione = ',Wnew.shape)
 
