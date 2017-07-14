@@ -58,7 +58,7 @@ class MyRNN:
                     #self.X[i, j, 2] = 0
 
             #self.X[i, j + 1, 2] = 0
-            self.X[i, j + 1, 1] = 1
+            #self.X[i, j + 1, 1] = 1
 
         # Preparation of Y
         self.Y = np.zeros((self.N, self.T, self.D))
@@ -88,7 +88,7 @@ class MyRNN:
         dLdO = -self.Y / self.O
         dOdVS = self.O * (1.0 - self.O)
         dLdV = np.tensordot(dLdO*dOdVS, self.S, axes=((0, 1), (0, 1)))
-        c = self.eta * (-1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
+        c = self.eta * (1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
         # New matrix V
         Vnew = self.V - c * dLdV
 

@@ -70,13 +70,14 @@ def printResults():
     print(phrase10)
     print(myRnn.test[10])
     
-
+    
     input = prova_init_param(myRnn.test[9:12], myRnn.dictionary, myRnn.T, myRnn.D)
     Xidx = input.argmax(axis=2)
     print('Sequenza di input')
     print(Xidx[1,:])
     '''
 
+    '''
     # Prova di stampa delle frasi predette col test set
     print('RNN Prediction')
     #Show some generated phrases
@@ -90,7 +91,7 @@ def printResults():
 
     print(words)
     print(strings[0:20])
-
+    '''
 
     '''
     train = import_file('lossTrain.txt')
@@ -129,10 +130,11 @@ def phrase_generator(aRnn, startW):
     w = startW
     output += w + ' '
 
-    while w != '<endW>' | iter < 10:
-        aRnn.init_mainParam([w])
+    while iter < 10:
+        print('Iter = ', iter)
+        aRnn.init_mainParam([[w]])
         aRnn.S, aRnn.O = aRnn.fwdRnn(aRnn.X, aRnn.S, aRnn.O)
-        w = aRnn.dictionary[aRnn.O.argmax()]
+        w = aRnn.dictionary[aRnn.O.argmax(axis=2)[0][0]]
         output += w + ' '
         iter += 1
 
