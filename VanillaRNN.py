@@ -113,6 +113,16 @@ class MyRNN:
 
         return (Vnew, Unew, Wnew)
 
+    '''
+    # Second version of the Backward step of the RNN
+    def weight_update(self):
+
+        # V update
+
+        # U update
+
+        # W update
+    '''
 
     # Function that implements the softmax computation
     def softmax(self,s):
