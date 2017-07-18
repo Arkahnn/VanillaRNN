@@ -104,7 +104,7 @@ class MyRNN:
 
         # Evaluation of dLdW
         dL_dW = np.tensordot(dL_dS*dS_dargTanh, S0, axes=((0, 1), (0, 1))) # returns an HxH matrix
-        Wnew = self.W - c * dL_dW
+        Wnew = self.W - (c * dL_dW)
 
         '''
         # First version - not correct
