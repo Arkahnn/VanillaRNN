@@ -88,7 +88,7 @@ class MyRNN:
         dL_dO = self.Y / self.O
         dO_dVS = self.O * (1.0 - self.O)
         dL_dV = np.tensordot(dL_dO*dO_dVS, self.S, axes=((0, 1), (0, 1)))
-        c = (-self.eta) / (self.n_train * self.T) # Constant value including eta and 1/n
+        c = (-self.eta) / (self.N * self.T) # Constant value including eta and 1/n
         # New matrix V
         Vnew = self.V - c * dL_dV
 
@@ -103,7 +103,7 @@ class MyRNN:
         Unew = self.U - c * dL_dU
 
         # Evaluation of dLdW
-        dL_dW = dL_dU = np.tensordot(dL_dS*dS_dargTanh, S0, axes=((0, 1), (0, 1))) # returns an HxH matrix
+        dL_dW = np.tensordot(dL_dS*dS_dargTanh, S0, axes=((0, 1), (0, 1))) # returns an HxH matrix
         Wnew = self.W - c * dL_dW
 
         '''
