@@ -71,7 +71,7 @@ class MyRNN:
     def outHL(self, x, s_prev):
         return np.tanh(np.dot(self.U, x) + np.dot(self.W, s_prev))
 
-    # Forward pass of the RNN
+    # Function that implements the forward pass of the RNN
     def fwdRnn(self, X, S, O):
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
@@ -82,62 +82,50 @@ class MyRNN:
             O[:, t, :] = self.softmax(self.V.dot(S[:, t, :].T)).T
         return S, O
 
-    # Backward pass of the RNN
+    # Function that implements the backward pass of the RNN
     def bwRnn(self):
         # Evaluation of dLdV
-        dL_dO = -self.Y / self.O
+        dL_dO = self.Y / self.O
         dO_dVS = self.O * (1.0 - self.O)
         dL_dV = np.tensordot(dL_dO*dO_dVS, self.S, axes=((0, 1), (0, 1)))
-        c = self.eta * (1.0 / (self.n_train * self.T * self.D)) #Constant value including eta and 1/n
+        c = (-self.eta) / (self.n_train * self.T) # Constant value including eta and 1/n
         # New matrix V
         Vnew = self.V - c * dL_dV
 
         # Evaluation of dLdU
         S0 = np.zeros(self.S.shape) # S(t-1)
         S0[:, 1:, :] = self.S[:, :-1, :]
+
+        # Second version - correct
         dS_dargTanh = (1 - np.power(self.S,2))
         dL_dS = np.tensordot(dL_dO*dO_dVS, self.V, axes=(2, 0))
         dL_dU = np.tensordot(dL_dS*dS_dargTanh, self.X, axes=((0, 1), (0, 1))) # returns an HxD matrix
         Unew = self.U - c * dL_dU
 
         # Evaluation of dLdW
-
         dL_dW = dL_dU = np.tensordot(dL_dS*dS_dargTanh, S0, axes=((0, 1), (0, 1))) # returns an HxH matrix
         Wnew = self.W - c * dL_dW
 
         '''
+        # First version - not correct
         dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
         dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-        dLdS = np.tensordot(dLdO * dOdVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
-        dL_dargTanh1 = np.tensordot(dLdS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dL_dS = np.tensordot(dL_dO * dO_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        dL_dargTanh1 = np.tensordot(dL_dS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
-        dLdU = dL_dargTanh1.dot(dargTanh2_dU)
+        dL_dU = dL_dargTanh1.dot(dargTanh2_dU)
         # New matrix U
-        Unew = self.U - c * dLdU
+        Unew = self.U - c * dL_dU
         # print('U aggiornato con dimensioni = ',Unew.shape)
 
         # Evaluation of dLdW
         dargTanh2_dW = np.tensordot(dS_dargTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        dLdW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
-        Wnew = self.W - c * dLdW
+        dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
+        Wnew = self.W - c * dL_dW
         # print('W aggiornato con dimensione = ',Wnew.shape)
         '''
 
         return (Vnew, Unew, Wnew)
-
-    '''
-    # Second version of the Backward step of the RNN
-    
-    def weight_update(self):
-
-        # V update
-        dLdO = -self.Y / self.O
-        dOdVS = self.O * (1.0 - self.O)
-
-        # U update
-
-        # W update
-    '''
 
     # Function that implements the softmax computation
     def softmax(self,s):

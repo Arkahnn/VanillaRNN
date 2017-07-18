@@ -134,6 +134,8 @@ def phrase_generator(aRnn, startW):
         print('Iter = ', iter)
         aRnn.init_mainParam([[w]])
         aRnn.S, aRnn.O = aRnn.fwdRnn(aRnn.X, aRnn.S, aRnn.O)
+        print('Nuovo indice: ', aRnn.O.argmax(axis=2)[0][0])
+        print('Nuova parola: ', aRnn.dictionary[aRnn.O.argmax(axis=2)[0][0]])
         w = aRnn.dictionary[aRnn.O.argmax(axis=2)[0][0]]
         output += w + ' '
         iter += 1
