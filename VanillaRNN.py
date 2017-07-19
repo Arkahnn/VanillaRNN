@@ -32,12 +32,12 @@ class MyRNN:
         wgtD = self.D ** (-0.5)
         wgtH = self.H ** (-0.5)
 
-        #self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
-        #self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
-        #self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
-        self.U = np.random.randn(self.H, self.D) * 0.01
-        self.W = np.random.randn(self.H, self.H) * 0.01
-        self.V = np.random.randn(self.D, self.H) * 0.01
+        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
+        self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+        #self.U = np.random.randn(self.H, self.D) * 0.01
+        #self.W = np.random.randn(self.H, self.H) * 0.01
+        #self.V = np.random.randn(self.D, self.H) * 0.01
 
     # Main parameter initializator
     def init_mainParam(self, data):
@@ -89,7 +89,7 @@ class MyRNN:
     def bwRnn(self):
 
         '''
-        Good version
+        #Good version
 
         # Evaluation of dLdV
         dL_dO = self.Y / self.O
@@ -100,6 +100,17 @@ class MyRNN:
         Vnew = self.V - c * dL_dV
         '''
 
+        '''
+        # Verifying the two versions
+        A = - self.Y + (self.Y * self.O)
+        dL_dO = self.Y / self.O
+        dO_dVS = self.O * (1.0 - self.O)
+        B = dL_dO*dO_dVS
+        print('Uguaglianza tra versione semplificata ed espansa: ', A == B)
+        '''
+
+        # Third version - As good as the Good version
+        
         # Evaluation of dL_dV
         dL_dVS = - self.Y + (self.Y * self.O)
         dL_dV = np.tensordot(dL_dVS, self.S, axes=((0, 1), (0, 1)))
@@ -113,8 +124,8 @@ class MyRNN:
         S0 = np.zeros(self.S.shape) # S(t-1)
         S0[:, 1:, :] = self.S[:, :-1, :]
 
-
-        # Second version - correct
+        '''
+        # Second version of the second part - correct
         dS_dargTanh = (1 - np.power(self.S,2))
         dL_dS = np.tensordot(dL_dVS, self.V, axes=(2, 0))
         dL_dU = np.tensordot(dL_dS*dS_dargTanh, self.X, axes=((0, 1), (0, 1))) # returns an HxD matrix
@@ -123,13 +134,14 @@ class MyRNN:
         # Evaluation of dLdW
         dL_dW = np.tensordot(dL_dS*dS_dargTanh, S0, axes=((0, 1), (0, 1))) # returns an HxH matrix
         Wnew = self.W - (c * dL_dW)
+
+
         '''
 
-
-        # First version - not correct
+        # First version of the second part - not correct
         dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
         dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-        dL_dS = np.tensordot(dL_dO * dO_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        dL_dS = np.tensordot(dL_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
         dL_dargTanh1 = np.tensordot(dL_dS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
         dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
         dL_dU = dL_dargTanh1.dot(dargTanh2_dU)
@@ -142,7 +154,7 @@ class MyRNN:
         dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
         Wnew = self.W - c * dL_dW
         # print('W aggiornato con dimensione = ',Wnew.shape)
-        '''
+
 
         return (Vnew, Unew, Wnew)
 
