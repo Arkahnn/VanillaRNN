@@ -32,12 +32,12 @@ class MyRNN:
         wgtD = self.D ** (-0.5)
         wgtH = self.H ** (-0.5)
 
-        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
-        self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
-        self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
-        #self.U = np.random.randn(self.H, self.D) * 0.01
-        #self.W = np.random.randn(self.H, self.H) * 0.01
-        #self.V = np.random.randn(self.D, self.H) * 0.01
+        # self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
+        # self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        # self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+        self.U = np.random.randn(self.H, self.D) * 0.01
+        self.W = np.random.randn(self.H, self.H) * 0.01
+        self.V = np.random.randn(self.D, self.H) * 0.01
 
     # Main parameter initializator
     def init_mainParam(self, data):
