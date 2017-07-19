@@ -11,11 +11,11 @@ def test_step2(aRnn):
     return lossTest, accTest
 
 
-def prova_init_param(data, dictionary, T, D):
-    N = len(data)
+def prova_init_param(aRnn, data):
+    aRnn.N = len(data)
     # print('N dimension: ', self.N)
     # Preparation of X
-    X = np.zeros((N, T, D))
+    X = np.zeros((aRnn.N, aRnn.T, aRnn.D))
     X[:, 0, 0] = 1
     #X[:, 1:, 2] = 1
 
@@ -27,15 +27,19 @@ def prova_init_param(data, dictionary, T, D):
             #j = s.index(w) + 1  # Index of the word in the phrase +1 for the <startWD> token
             w = s[j]
             j += 1
-            k = dictionary.index(w)  # Index of the word in the dictionary
+            k = aRnn.dictionary.index(w)  # Index of the word in the dictionary
             print('Parola w: ', w, '; indice in frase j: ', j,'indice in dizionario k: ', k)
             X[i, j, k] = 1
             #X[i, j, 2] = 0
 
         #X[i, j + 1, 2] = 0
-        X[i, j + 1, 1] = 1
-
-    return X
+        #X[i, j + 1, 1] = 1
+    aRnn.X = X
+    aRnn.Y = np.zeros((aRnn.N, aRnn.T, aRnn.D))
+    aRnn.Y[:, :-1, :] = aRnn.X[:, 1:, :]
+    # self.Y[:, -1:, 2] = 1
+    aRnn.S = np.zeros((aRnn.N, aRnn.T, aRnn.H))
+    aRnn.O = np.zeros((aRnn.N, aRnn.T, aRnn.D))
 
 def printResults():
     K, eta, H_size = 10, 0.9, 100
@@ -58,7 +62,7 @@ def printResults():
 
     loss, acc = test_step2(myRnn)
 
-    output = phrase_generator(myRnn, 'I')
+    output = phrase_generator(myRnn, 'Time')
     print(output)
 
     '''
@@ -124,20 +128,21 @@ def printResults():
     '''
 
 def phrase_generator(aRnn, startW):
-    output, w = '', ''
+    output, listWords = '', []
     iter = 0
-
-    w = startW
-    output += w + ' '
+    listWords += [startW]
+    output += startW + ' '
 
     while iter < 10:
         print('Iter = ', iter)
-        aRnn.init_mainParam([[w]])
+        print('Prhase dimension: ', len(listWords))
+        aRnn.init_mainParam([listWords])
         aRnn.S, aRnn.O = aRnn.fwdRnn(aRnn.X, aRnn.S, aRnn.O)
-        print('Nuovo indice: ', aRnn.O.argmax(axis=2)[0][0])
-        print('Nuova parola: ', aRnn.dictionary[aRnn.O.argmax(axis=2)[0][0]])
-        w = aRnn.dictionary[aRnn.O.argmax(axis=2)[0][0]]
-        output += w + ' '
+        print('Dimensione O: ',aRnn.O.shape)
+        print('Nuovo indice: ', aRnn.O.argmax(axis=2)[0][iter])
+        print('Nuova parola: ', aRnn.dictionary[aRnn.O.argmax(axis=2)[0][iter]])
+        listWords += [aRnn.dictionary[aRnn.O.argmax(axis=2)[0][iter]]]
+        output += aRnn.dictionary[aRnn.O.argmax(axis=2)[0][iter]] + ' '
         iter += 1
 
     return output

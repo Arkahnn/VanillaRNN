@@ -32,9 +32,12 @@ class MyRNN:
         wgtD = self.D ** (-0.5)
         wgtH = self.H ** (-0.5)
 
-        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
-        self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
-        self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+        #self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
+        #self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        #self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+        self.U = np.random.randn(self.H, self.D)*0.01
+        self.W = np.random.randn(self.H, self.H)*0.01
+        self.V = np.random.randn(self.D, self.H)*0.01
 
     # Main parameter initializator
     def init_mainParam(self, data):
@@ -142,7 +145,7 @@ class MyRNN:
         return a.sum()
         '''
         O_ = np.log(self.O)
-        c = -1 / self.N
+        c = (-1) / (self.N * self.T)
         return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
 
     # Function that implements the forward step in the RNN
@@ -168,7 +171,8 @@ class MyRNN:
                 self.V, self.U, self.W = self.bwRnn()
                 lossT += self.lossFunction()
             #lossTrain += [lossT / 100]
-            lossTrain += [lossT / (self.n_train // self.N)]
+            lossTrain += [lossT]
+            # lossTrain += [lossT / (self.n_train // self.N)]
             lossT = 0.0
 
             # Validation set computation
