@@ -74,6 +74,13 @@ class MyRNN:
     def outHL(self, x, s_prev):
         return np.tanh(np.dot(self.U, x) + np.dot(self.W, s_prev))
 
+    # Function that implements the softmax computation
+    def softmax(self, s):
+        # Softmax over 2D-matrix if D dimension is on axis = 0
+        s -= np.amax(s, axis=0)
+        s = np.exp(s)
+        return s / np.sum(s, axis=0)
+
     # Function that implements the forward pass of the RNN
     def fwdRnn(self, X, S, O):
         # 1. s = tanh(Ux + Ws_prev)
@@ -156,13 +163,6 @@ class MyRNN:
 
         return (Vnew, Unew, Wnew)
 
-    # Function that implements the softmax computation
-    def softmax(self,s):
-        # Softmax over 2D-matrix if D dimension is on axis = 0
-        s -= np.amax(s, axis=0)
-        s = np.exp(s)
-        return s / np.sum(s, axis=0)
-
     # Function that implements the loss function computation
     def lossFunction(self):
         '''
@@ -196,8 +196,8 @@ class MyRNN:
                 self.S, self.O = self.fwdRnn(self.X, self.S, self.O)
                 self.V, self.U, self.W = self.bwRnn()
                 lossT += self.lossFunction()
-            #lossTrain += [lossT / 100]
-            lossTrain += [lossT]
+            lossTrain += [lossT / (len(self.train) // self.N)]
+            #lossTrain += [lossT]
             # lossTrain += [lossT / (self.n_train // self.N)]
             lossT = 0.0
 
