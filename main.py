@@ -5,7 +5,7 @@ from Tools import *
 
 # This is the correct way to create a main function in Python (simply run it)
 if __name__ == "__main__":
-    K, eta, H_size, mini_batch_size = 100, 0.15, 100, 500
+    K, eta, H_size, mini_batch_size = 10, 0.9, 100, 500
 
     print('Dataset creation')
     # Create dictionary
