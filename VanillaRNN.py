@@ -98,10 +98,8 @@ class MyRNN:
         c = (-self.eta) / (self.N * self.T) # Constant value including eta and 1/n
         # New matrix V
         Vnew = self.V - c * dL_dV
-        '''
 
-        '''
-        # Verifying the two versions
+        # Verifying the Good and the Third versions
         A = - self.Y + (self.Y * self.O)
         dL_dO = self.Y / self.O
         dO_dVS = self.O * (1.0 - self.O)
@@ -124,7 +122,7 @@ class MyRNN:
         S0 = np.zeros(self.S.shape) # S(t-1)
         S0[:, 1:, :] = self.S[:, :-1, :]
 
-        '''
+
         # Second version of the second part - correct
         dS_dargTanh = (1 - np.power(self.S,2))
         dL_dS = np.tensordot(dL_dVS, self.V, axes=(2, 0))
@@ -154,7 +152,7 @@ class MyRNN:
         dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
         Wnew = self.W - c * dL_dW
         # print('W aggiornato con dimensione = ',Wnew.shape)
-
+        '''
 
         return (Vnew, Unew, Wnew)
 
@@ -173,7 +171,7 @@ class MyRNN:
         return a.sum()
         '''
         O_ = np.log(self.O)
-        c = (-1) / (self.n_train * self.T)
+        c = (-1) / (self.N * self.T)
         return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
 
     # Function that implements the forward step in the RNN
