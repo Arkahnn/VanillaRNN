@@ -1,0 +1,75 @@
+# #Function that build the dictionary ad the data set
+# def build_Dictionary(train_set,test_set):
+#     body1 = import_file(train_set)
+#     body2 = import_file(test_set)
+#     body1 = re.sub(r'[^\w]', ' ', body1)
+#     body2 = re.sub(r'[^\w]', ' ', body2)
+#     stringTrain = body1.split('\n')
+#     stringTest = body2.split('\n')
+#     words = []
+#     for s in stringTrain:
+#         words += s.split(' ')
+#     for s in stringTest:
+#         words += s.split(' ')
+#     dictionary = sorted(set(words))
+#     dictionary = ['<startW>','<endW>','<NaW>'] + dictionary
+#
+#     return (dictionary, stringTrain, stringTest)
+
+
+
+    # Multi-line comments are triggered with CTRL + /
+    # for i in range(K):
+    #     print('Epoch ', i, ':')
+    #     myRnn.fwdRnn()
+    #     Vnew, Unew, Wnew = myRnn.bwRnn()
+    #     # V = myRnn.V
+    #     myRnn.V, myRnn.U, myRnn.W = Vnew, Unew, Wnew
+    #     # print('Vecchio valore di V: ', V)
+    #     # print('Nuovo valore di V: ', (myRnn.V == Vnew))
+    #     # print('Valore di O: ', myRnn.O.sum())
+    #     loss_val += [myRnn.lossFunction(myRnn.Y, myRnn.O, myRnn.N)]
+    #     myRnn.S = np.zeros((myRnn.N, myRnn.T, myRnn.H))
+    #     myRnn.O = np.zeros((myRnn.N, myRnn.T, myRnn.D))
+
+
+        self.X = np.zeros((self.N, self.T, self.D))
+        self.X[:, 0, 0] = 1.0
+        for sent in data:
+            i = data.index(sent)  # Index of the phrase
+            for j in range(len(sent)):
+                # j = sent.index(w) + 1  # Index of the word in the phrase +1 for the <startWD> token
+                if sent[j] != '':
+                    w = sent[j]
+                    j += 1
+                    k = self.dictionary.index(w)  # Index of the word in the dictionary
+                    self.X[i, j, k] = 1.0
+                    # self.X[i, j, 2] = 0
+
+            # self.X[i, j + 1, 2] = 0
+            # self.X[i, j + 1, 1] = 1
+        # Preparation of Y
+        self.Y = np.zeros((self.N, self.T, self.D))
+        self.Y[:, :-1, :] = self.X[:, 1:, :]
+        # self.Y[:, -1:, 2] = 1
+        self.S = np.zeros((self.N, self.T, self.H))
+        self.O = np.zeros((self.N, self.T, self.D))
+
+        '''
+        # First version - not correct
+        dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
+        dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
+        dL_dS = np.tensordot(dL_dO * dO_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        dL_dargTanh1 = np.tensordot(dL_dS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
+        dL_dU = dL_dargTanh1.dot(dargTanh2_dU)
+        # New matrix U
+        Unew = self.U - c * dL_dU
+        # print('U aggiornato con dimensioni = ',Unew.shape)
+
+        # Evaluation of dLdW
+        dargTanh2_dW = np.tensordot(dS_dargTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
+        Wnew = self.W - c * dL_dW
+        # print('W aggiornato con dimensione = ',Wnew.shape)
+        '''
