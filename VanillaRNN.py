@@ -56,28 +56,71 @@ class RNN:
 
     # backward pass of the RNN
     def backprop(self):
+        '''
+        #Good version
+
         # Evaluation of dLdV
-        dLdO = -self.Y / self.O
-        dOdVS = self.O * (1.0 - self.O)
-        dLdV = np.tensordot(dLdO * dOdVS, self.S, axes=((0, 1), (0, 1)))
-        c = -self.eta / (self.N * self.T)  # Constant value including eta and 1/n
+        dL_dO = self.Y / self.O
+        dO_dVS = self.O * (1.0 - self.O)
+        dL_dV = np.tensordot(dL_dO*dO_dVS, self.S, axes=((0, 1), (0, 1)))
+        c = (-self.eta) / (self.N * self.T) # Constant value including eta and 1/n
+        # New matrix V
+        Vnew = self.V - c * dL_dV
+
+        # Verifying the Good and the Third versions
+        A = - self.Y + (self.Y * self.O)
+        dL_dO = self.Y / self.O
+        dO_dVS = self.O * (1.0 - self.O)
+        B = dL_dO*dO_dVS
+        print('Uguaglianza tra versione semplificata ed espansa: ', A == B)
+        '''
+
+        # Third version - As good as the Good version
+
+        # Evaluation of dL_dV
+        dLdVS = - self.Y + (self.Y * self.O)
+        dLdV = np.tensordot(dLdVS, self.S, axes=((0, 1), (0, 1)))
+        c = self.eta / (self.n_train * self.T)  # Constant value including eta and 1/n
+        #c = self.eta
+        # New matrix V
         Vnew = self.V - c * dLdV
 
+
         # Evaluation of dLdU
-        S0 = np.zeros(self.S.shape)  # S(t-1)
+        S0 = np.zeros(self.S.shape) # S(t-1)
         S0[:, 1:, :] = self.S[:, :-1, :]
 
-        # Second version - correct
+
+        # Second version of the second part - correct
         dtanh = (1 - np.power(self.S, 2))
-        dLdS = np.tensordot(dLdO * dOdVS, self.V, axes=(2, 0))
+        dLdS = np.tensordot(dLdVS, self.V, axes=(2, 0))
         dLdU = np.tensordot(dLdS * dtanh, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
         Unew = self.U - c * dLdU
 
         # Evaluation of dLdW
-        dLdW = np.tensordot(dLdS * dtanh, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        Wnew = self.W - (c * dLdW)
+        dL_dW = np.tensordot(dLdS * dtanh, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        Wnew = self.W - (c * dL_dW)
 
-        return Vnew, Unew, Wnew
+
+        '''
+        # First version of the second part - not correct
+        dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
+        dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
+        dL_dS = np.tensordot(dL_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
+        dL_dargTanh1 = np.tensordot(dL_dS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
+        dL_dU = dL_dargTanh1.dot(dargTanh2_dU)
+        # New matrix U
+        Unew = self.U - c * dL_dU
+        # print('U aggiornato con dimensioni = ',Unew.shape)
+        # Evaluation of dLdW
+        dargTanh2_dW = np.tensordot(dS_dargTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
+        Wnew = self.W - c * dL_dW
+        # print('W aggiornato con dimensione = ',Wnew.shape)
+        '''
+
+        return (Vnew, Unew, Wnew)
 
     def training(self, K, mini_batch_size):
         loss_train, loss_val = [], []

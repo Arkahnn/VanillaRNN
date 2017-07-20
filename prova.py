@@ -62,7 +62,7 @@ def printResults():
 
     loss, acc = test_step2(myRnn)
 
-    output = phrase_generator(myRnn, 'Time')
+    output = phrase_generator(myRnn, 'I')
     print(output)
 
     '''
