@@ -1,24 +1,10 @@
-import numpy as np
-import re
-import math
 import random
-from Tools import *
+import numpy as np
+import tools
 
 
-class MyRNN:
-    # Parameters
-    N = T = D = H = eta = n_train = 0
+class RNN:
 
-    # Variables
-    X = Y = O = S = np.empty((N, T))
-
-    # weights
-    U = W = V = np.empty((D, H))
-
-    # Input parameters
-    dictionary = train = val = test = []
-
-    # Main RNN constructor
     def __init__(self, dictionary, train, val, test, H, eta):
         self.dictionary, self.train, self.val, self.test = dictionary, train, val, test
 
@@ -29,169 +15,137 @@ class MyRNN:
         # print('Total number of phrases: ', self.N)
 
         # Weight assignment with Glorot uniform
-        wgtD = self.D ** (-0.5)
-        wgtH = self.H ** (-0.5)
+        # wgtD = self.D ** (-0.5)
+        # wgtH = self.H ** (-0.5)
 
-        #self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
-        #self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
-        #self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
-        self.U = np.random.randn(self.H, self.D)*0.01
-        self.W = np.random.randn(self.H, self.H)*0.01
-        self.V = np.random.randn(self.D, self.H)*0.01
+        # self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
+        # self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        # self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
 
-    # Main parameter initializator
-    def init_mainParam(self, data):
-        self.N = len(data)
-        # print('N dimension: ', self.N)
-        # Preparation of X
+        # weight assignment with simple weights
+        self.U = np.random.randn(self.H, self.D) * 0.01
+        self.W = np.random.randn(self.H, self.H) * 0.01
+        self.V = np.random.randn(self.D, self.H) * 0.01
+
+    def init_main_params(self, data):
+        # Set X (input)
         self.X = np.zeros((self.N, self.T, self.D))
-        self.X[:, 0, 0] = 1
-        #self.X[:, 1:, 2] = 1
+        for n, sent in enumerate(data):
+            self.X[n, range(len(sent)), [self.dictionary.index(x) for x in sent]] = 1.0
 
-        for s in data:
-            i = data.index(s) #Index of the phrase
-            j, k = 0, 0
-            for j in range(len(s)):
-                # j = s.index(w) + 1  # Index of the word in the phrase +1 for the <startWD> token
-                if s[j] != '':
-                    w = s[j]
-                    j += 1
-                    k = self.dictionary.index(w) #Index of the word in the dictionary
-                    self.X[i, j, k] = 1
-                    #self.X[i, j, 2] = 0
-
-            #self.X[i, j + 1, 2] = 0
-            #self.X[i, j + 1, 1] = 1
-
-        # Preparation of Y
+        # Set Y (labels)
         self.Y = np.zeros((self.N, self.T, self.D))
         self.Y[:, :-1, :] = self.X[:, 1:, :]
-        #self.Y[:, -1:, 2] = 1
+        # self.Y[:, -1:, 2] = 1
+
+        # Set S and O (hidden output and output)
         self.S = np.zeros((self.N, self.T, self.H))
         self.O = np.zeros((self.N, self.T, self.D))
 
-    # Function that implements the activation of the hidden layer
-    def outHL(self, x, s_prev):
-        return np.tanh(np.dot(self.U, x) + np.dot(self.W, s_prev))
-
-    # Function that implements the forward pass of the RNN
-    def fwdRnn(self, X, S, O):
+    # forward step of the RNN
+    def forward(self, X, S, O):
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
         # 3. U,W,V = L(y,o)
 
         for t in range(self.T):
-            S[:, t, :] = self.outHL(X[:, t, :].T, S[:, t - 1, :].T).T
-            O[:, t, :] = self.softmax(self.V.dot(S[:, t, :].T)).T
+            S[:, t, :] = self.out_HL(X[:, t, :].T, S[:, t - 1, :].T).T
+            # O[:, t, :] = self.softmax(self.V.dot(S[:, t, :].T)).T
+            O[:, t, :] = self.softmax(np.dot(S[:, t, :], self.V.T))
         return S, O
 
-    # Function that implements the backward pass of the RNN
-    def bwRnn(self):
+    # backward pass of the RNN
+    def backprop(self):
         # Evaluation of dLdV
-        dL_dO = self.Y / self.O
-        dO_dVS = self.O * (1.0 - self.O)
-        dL_dV = np.tensordot(dL_dO*dO_dVS, self.S, axes=((0, 1), (0, 1)))
-        c = (-self.eta) / (self.N * self.T) # Constant value including eta and 1/n
-        # New matrix V
-        Vnew = self.V - c * dL_dV
+        dLdO = -self.Y / self.O
+        dOdVS = self.O * (1.0 - self.O)
+        dLdV = np.tensordot(dLdO * dOdVS, self.S, axes=((0, 1), (0, 1)))
+        c = -self.eta / (self.N * self.T)  # Constant value including eta and 1/n
+        Vnew = self.V - c * dLdV
 
         # Evaluation of dLdU
-        S0 = np.zeros(self.S.shape) # S(t-1)
+        S0 = np.zeros(self.S.shape)  # S(t-1)
         S0[:, 1:, :] = self.S[:, :-1, :]
 
         # Second version - correct
-        dS_dargTanh = (1 - np.power(self.S,2))
-        dL_dS = np.tensordot(dL_dO*dO_dVS, self.V, axes=(2, 0))
-        dL_dU = np.tensordot(dL_dS*dS_dargTanh, self.X, axes=((0, 1), (0, 1))) # returns an HxD matrix
-        Unew = self.U - c * dL_dU
+        dtanh = (1 - np.power(self.S, 2))
+        dLdS = np.tensordot(dLdO * dOdVS, self.V, axes=(2, 0))
+        dLdU = np.tensordot(dLdS * dtanh, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
+        Unew = self.U - c * dLdU
 
         # Evaluation of dLdW
-        dL_dW = np.tensordot(dL_dS*dS_dargTanh, S0, axes=((0, 1), (0, 1))) # returns an HxH matrix
-        Wnew = self.W - (c * dL_dW)
+        dLdW = np.tensordot(dLdS * dtanh, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
+        Wnew = self.W - (c * dLdW)
 
-        '''
-        # First version - not correct
-        dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-        dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-        dL_dS = np.tensordot(dL_dO * dO_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
-        dL_dargTanh1 = np.tensordot(dL_dS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
-        dL_dU = dL_dargTanh1.dot(dargTanh2_dU)
-        # New matrix U
-        Unew = self.U - c * dL_dU
-        # print('U aggiornato con dimensioni = ',Unew.shape)
+        return Vnew, Unew, Wnew
 
-        # Evaluation of dLdW
-        dargTanh2_dW = np.tensordot(dS_dargTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-        dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
-        Wnew = self.W - c * dL_dW
-        # print('W aggiornato con dimensione = ',Wnew.shape)
-        '''
+    def training(self, K, mini_batch_size):
+        loss_train, loss_val = [], []
+        idx_train = list(range(self.n_train))
+        self.N = mini_batch_size
+        n_mini_batches = self.n_train // self.N
 
-        return (Vnew, Unew, Wnew)
+        print('Training set size: ', self.n_train)
+        print('Mini-batch size: ', self.N)
+        print('Number of mini-batches: ', n_mini_batches)
+
+        for i in range(K):
+            print('Epoch ', i, '/', K, ':')
+            random.shuffle(idx_train)
+            loss_t, loss_v = (0.0, 0.0)
+
+            # forward and backprop steps
+            for j in range(n_mini_batches):
+                print('    Batch ', j + 1, '/', n_mini_batches)
+                self.init_main_params([self.train[i] for i in idx_train[(j * self.N):((j + 1) * self.N)]])
+                self.S, self.O = self.forward(self.X, self.S, self.O)
+                self.V, self.U, self.W = self.backprop()
+                loss_t += self.loss()
+            loss_train.append(loss_t)
+            print('    Loss: ', loss_t)
+            # validation step
+            print('Validation: ')
+            for j in range(len(self.val) // self.N):
+                print('    Batch ', j + 1, '/', len(self.val) // self.N)
+                self.init_main_params(self.val[(j * self.N):((j + 1) * self.N)])
+                self.forward(self.X, self.S, self.O)
+                loss_v += self.loss()
+            loss_val.append(loss_v)
+
+        return loss_train, loss_val
+
+    def testing(self):
+        self.init_main_params(self.test)
+        self.forward(self.X, self.S, self.O)
+        print('N = ', self.N)
+        loss_test = self.loss()
+        acc_test = self.accuracy()
+        return loss_test, acc_test
 
     # Function that implements the softmax computation
-    def softmax(self,s):
+    def softmax(self, s):
         # Softmax over 2D-matrix if D dimension is on axis = 0
         s -= np.amax(s, axis=0)
         s = np.exp(s)
         return s / np.sum(s, axis=0)
 
+    # Function that implements the activation of the hidden layer
+    def out_HL(self, x, s_prev):
+        return np.tanh(np.dot(self.U, x) + np.dot(self.W, s_prev))
+
     # Function that implements the loss function computation
-    def lossFunction(self):
+    def loss(self):
         '''
         o = o.transpose()
         a = -y*np.log(o)
         return a.sum()
         '''
         O_ = np.log(self.O)
-        c = (-1) / (self.N * self.T)
+        c = -1 / (self.N * self.T)
         return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
-
-    # Function that implements the forward step in the RNN
-    def training_step(self, K, mini_batch_size):
-        lossTrain, lossVal = [], []
-        lossT = 0.0
-        idxTrain = list(range(self.n_train))
-
-        for i in range(K):
-            print('Epoch ', i, ':')
-            # Training set computation
-            random.shuffle(idxTrain)
-            #self.N = 500
-            self.N = mini_batch_size
-            print('Train dimension: ', len(self.train))
-            print('N dimension: ', self.N)
-            print('Iteration range: ', len(self.train) // self.N)
-
-            for j in range(len(self.train) // self.N):
-                print('Iteration limits: [', j * self.N, ', ', j * self.N + self.N, ')')
-                self.init_mainParam([self.train[idxTrain[k]] for k in range(j * self.N, j * self.N + self.N)])
-                self.S, self.O = self.fwdRnn(self.X, self.S, self.O)
-                self.V, self.U, self.W = self.bwRnn()
-                lossT += self.lossFunction()
-            #lossTrain += [lossT / 100]
-            lossTrain += [lossT]
-            # lossTrain += [lossT / (self.n_train // self.N)]
-            lossT = 0.0
-
-            # Validation set computation
-            self.init_mainParam(self.val)
-            self.fwdRnn(self.X, self.S, self.O)
-            lossVal += [self.lossFunction()]
-
-        return lossTrain, lossVal
-
-    def test_step(self):
-        self.init_mainParam(self.test)
-        self.fwdRnn(self.X, self.S, self.O)
-        print('N = ', self.N)
-        lossTest = self.lossFunction()
-        accTest = self.accuracy()
-        return lossTest, accTest
 
     def accuracy(self):
         O_ = self.O.argmax(axis=2)
         Y_ = self.Y.argmax(axis=2)
-        compRes = Y_ == O_
-        return compRes.sum()/(self.N*self.T)
+        comp_res = Y_ == O_
+        return comp_res.sum() / (self.N * self.T)
