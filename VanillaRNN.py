@@ -57,37 +57,131 @@ class RNN:
 
 
     def dLdO(self):
-        dLdO = np.tile(self.Y.T, (self.D, 1, 1, 1)).T
-        for i in range(self.N):
-            for j in range(self.T):
-                dLdO[i,j,:,:] = np.multiply(dLdO[i,j,:,:], 1.0/self.O[i,j,:])
-        return np.sum(dLdO, axis=(0,1))
+        # #dL_dO = np.tile(self.Y.T, (self.D, 1, 1, 1)).T
+        # #dL_dO = self.Y.repeat(self.D).reshape(self.N, self.T, self.D, self.D)
+        # dL_dO = np.zeros((self.D, self.D))
+        # for i in range(self.N):
+        #     for j in range(self.T):
+        #         Y = self.Y[i,j,:].repeat(self.D).reshape(self.D, self.D)
+        #         dL_dO += np.multiply(Y, 1.0/self.O[i,j,:])
+        # #return np.sum(dL_dO, axis=(0,1)) #returns a DxD matrix
+        return np.multiply(-self.Y, 1.0/self.O) # returns a NxTxD matrix
 
     def dOdV(self, dO_dVS):
-        dO_dS = np.tile(dO_dVS.T, (self.H, 1, 1, 1)).T
+        #dO_dV = np.tile(dO_dVS.T, (self.H, 1, 1, 1)).T
+        dOdVS = dO_dVS.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
+        dO_dV = np.zeros((self.D, self.H))
         for i in range(self.N):
             for j in range(self.T):
-                dO_dS[i, j, :, :] = np.multiply(dO_dS[i, j, :, :], self.S[i, j, :])
-        return np.sum(dO_dS, axis=(0, 1))
+                #dOdVS = dO_dVS[i, j, :].repeat(self.H).reshape(self.D, self.H)
+                dO_dV += np.multiply(dOdVS[i, j, :, :], self.S[i, j, :])
+        #return np.sum(dO_dV, axis=(0, 1)) # returns a DxH matrix
+        return dO_dV # returns a DxH matrix
 
     def dOdS(self, dO_dVS):
-        dOdS = np.tile(dO_dVS.T, (self.H, 1, 1, 1)).T
+        #dO_dS = np.tile(dO_dVS.T, (self.H, 1, 1, 1)).T
+        #dO_dS = dO_dVS.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
+        dO_dS = np.zeros((self.D, self.H))
         for i in range(self.N):
             for j in range(self.T):
-                dOdS[i, j, :, :] = np.multiply(dOdS[i, j, :, :], self.V[:, :])
-        return np.sum(dOdS, axis=(0, 1)) # returns a DxH matrix
+                dOdVS = dO_dVS[i, j, :].repeat(self.H).reshape(self.D, self.H)
+                dO_dS += np.multiply(dOdVS, self.V[:, :])
+        #return np.sum(dO_dS, axis=(0, 1)) # returns a DxH matrix
+        return dO_dS # returns a DxH matrix
+
+    def dSdU(self):
+        #dS_dU = np.tile((1 - self.S**2).T, (self.D, 1, 1, 1)).T
+        #dS_dU = (1 - self.S**2).repeat(self.D).reshape(self.N, self.T, self.H, self.D)
+        S = (1 - self.S**2)
+        dS_dU = np.zeros((self.H, self.D))
+        for i in range(self.N):
+            for j in range(self.T):
+                dS_dArgT = S[i, j, :].repeat(self.D).reshape(self.H, self.D)
+                dS_dU += np.multiply(dS_dArgT, self.V.T)
+        #return np.sum(dS_dU, axis=(0, 1))  # returns a HxD matrix
+        return dS_dU # returns a HxD matrix
+
+    def dSdW(self, S0):
+        #dS_dW = np.tile((1 - self.S**2).T, (self.D, self.H, 1, 1, 1)).T
+        #dS_dW = (1 - self.S**2).repeat(self.H).reshape(self.N, self.T, self.H, self.H)
+        #dS_dW = dS_dW.repeat(self.D).reshape(self.N, self.T, self.H, self.H, self.D)
+        S = (1 - self.S**2)
+        #dS_dW = np.zeros((self.H, self.H, self.D))
+        dS_dArgT1 = S.repeat(self.H).reshape(self.N, self.T, self.H, self.H)
+        dS_dW = np.zeros((self.H, self.H))
+        for i in range(self.N):
+            for j in range(self.T):
+                dS_dW += np.multiply(dS_dArgT1[i,j,:,:],S0[i,j,:])
+        # for i in range(self.N):
+        #     for j in range(self.T):
+        #         dS_dArgT1 = S[i,j,:].repeat(self.H).reshape(self.H, self.H)
+        #         dS_dW += dS_dArgT1.repeat(self.D).reshape(self.H, self.H, self.D)
+        #
+        # for k in range(self.D):
+        #     dS_dW[:, :, k] = np.multiply(dS_dW[:, :, k], S0[i, j, :].T)
+        #return np.sum(dS_dW, axis=(0, 1))  # returns a HxHxD matrix
+        return dS_dW # returns an HxD matrix
+
+    def dLdV(self, dL_dO, dO_dV):
+        dL_dO1 = dL_dO.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
+        dL_dV = np.zeros((self.D, self.H))
+        for i, j, k in zip(range(self.N), range(self.T), range(self.D)):
+            dL_dV += np.multiply(dL_dO1[i, j, :, :], dO_dV)
+        return dL_dV # returns a DxH matrix
+
+    def dLdU(self, dL_dO, dO_dS, dS_dU):
+        dO_dU = np.multiply(dO_dS,dS_dU.T) # DxH matrix
+        dL_dO1 = dL_dO.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
+        dL_dU = np.zeros((self.D, self.H))
+        for i, j in zip(range(self.N), range(self.T)):
+            dL_dU += np.multiply(dL_dO1[i,j,:,:], dL_dU)
+        return dL_dU.T # returns an HxD matrix
+
+
+    def dLdW(self, dL_dO, dO_dS, dS_dW):
+        dO_dW = np.zeros((self.H, self.H))
+        for i in range(self.D):
+            dO_dW += np.multiply(dO_dS[i,:],dS_dW)
+
+        dL_dO1 = dL_dO.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
+        dL_dW = np.zeros((self.H, self.H))
+        for i, j, k in zip(range(self.N), range(self.T), range(self.D)):
+            dL_dW += np.multiply(dL_dO1[i,j,k,:], dO_dW)
+        return dL_dW # returns an HxH matrix
 
     # backward pass of the RNN
-    def backpropagation(self):
+    def backprop(self):
 
         # Evaluation of dL/dV
+        print('Evaluation of dL/dV')
         dL_dO = self.dLdO() # returns a DxD matrix
-        dO_dS = self.dOdS() # returns a DxH matrix
-        dL_dV = dL_dO.dot(dO_dS) # returns the final DxH matrix
+        dO_dVS = self.O*(1 - self.O)
+        dO_dV = self.dOdV(dO_dVS) # returns a DxH matrix
+        dL_dV = self.dLdV(dL_dO, dO_dV) # returns the final DxH matrix
         c = (-self.eta) / (self.N * self.T)  # Constant value including eta and 1/n
-        Vnew = self.V - c * dL_dV
+        Vnew = self.V - (c * dL_dV)
 
+        # Evalutation of dL/dU
+        print('Evaluation of dL/dU')
+        dO_dS = self.dOdS(dO_dVS) # returns a DxH matrix
+        # dL_dS = dL_dO.dot(dO_dS) # returns a DxH matrix
+        dS_dU = self.dSdU() # returns a HxD matrix
+        dL_dU = self.dLdU(dL_dO, dO_dS,dS_dU)
+        # dL_dU = dL_dS.T * dS_dU # returns the final HxD matrix
+        Unew = self.U - (c * dL_dU)
 
+        # Evaluation of dL/dW
+        print('Evaluation of dL/dW')
+        S0 = np.zeros(self.S.shape)  # S(t-1)
+        S0[:, 1:, :] = self.S[:, :-1, :]
+        dS_dW = self.dSdW(S0) # returns a HxHxD matrix
+        dL_dW = self.dLdW(dL_dO, dO_dS, dS_dW)
+        #dL_dW = np.tensordot(dL_dS, dS_dW, axes=(0, 2))
+        #dL_dW = np.tensordot(dL_dS, dS_dW, axes=((0,1),(2,1)))
+        #print('dL/dW dimensions: ', dL_dW.shape)
+        Wnew = self.W - (c * dL_dW)
+
+        return (Vnew, Unew, Wnew)
 
     # #Old Version
     # def backprop(self):
