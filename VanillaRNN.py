@@ -30,6 +30,7 @@ class RNN:
 
     def init_main_params(self, data):
         # Set X (input)
+        self.N = len(data)
         self.X = np.zeros((self.N, self.T, self.D))
         for n, sent in enumerate(data):
             self.X[n, range(len(sent)), [self.dictionary.index(x) for x in sent]] = 1.0
@@ -55,7 +56,7 @@ class RNN:
             O[:, t, :] = self.softmax(np.dot(S[:, t, :], self.V.T))
         return S, O
 
-
+    """
     def dLdO(self):
         # #dL_dO = np.tile(self.Y.T, (self.D, 1, 1, 1)).T
         # #dL_dO = self.Y.repeat(self.D).reshape(self.N, self.T, self.D, self.D)
@@ -102,7 +103,7 @@ class RNN:
         return dS_dU # returns a HxD matrix
 
     # Per il prodotto di Hadamard:
-    # Se ho una matrice NxTxD (O) e una NxTxH (S) invece di ciclare su N e su T, ciclare su D e sommare su N e T
+    # Se ho una matrice NxTxD(xH) (O) e una NxTxH (S) invece di ciclare su N e su T, ciclare su D e sommare su N e T
 
     def dSdW(self, S0):
         #dS_dW = np.tile((1 - self.S**2).T, (self.D, self.H, 1, 1, 1)).T
@@ -151,6 +152,36 @@ class RNN:
         for i, j, k in zip(range(self.N), range(self.T), range(self.D)):
             dL_dW += np.multiply(dL_dO1[i,j,k,:], dO_dW)
         return dL_dW # returns an HxH matrix
+    """
+
+    # New version
+    def dLdO(self):
+        return (-self.Y)/self.O
+
+    def dOdV(self, dO_dVS):
+        return np.einsum('ntd,nth->dh',dO_dVS,self.S)
+
+    def dOdS(self, dO_dVS):
+        return np.einsum('ntd,dh->dh', dO_dVS, self.V)
+
+    def dSdU(self):
+        S = (1 - self.S ** 2)
+        return np.einsum('nth,ntd->hd', S, self.X)
+
+    def dSdW(self, S0):
+        S = (1 - self.S ** 2)
+        return np.einsum('nth,ntd->hd', S, S0)
+
+    def dLdV(self, dL_dO, dO_dV):
+        return np.einsum('ntd,dh->dh', dL_dO, dO_dV)
+
+    def dLdU(self, dL_dO, dO_dS, dS_dU):
+        dO_dU = np.einsum('dh,hd->hd', dO_dS, dS_dU)
+        return np.einsum('ntd,hd->hd', dL_dO, dO_dU)
+
+    def dLdW(self, dL_dO, dO_dS, dS_dW):
+        dL_dS = np.einsum('ntd,dh->dh', dL_dO, dO_dS)
+        return np.einsum('dh,hn->hn', dL_dS, dS_dW)
 
     # backward pass of the RNN
     def backprop(self):
@@ -161,7 +192,7 @@ class RNN:
         dO_dVS = self.O*(1 - self.O)
         dO_dV = self.dOdV(dO_dVS) # returns a DxH matrix
         dL_dV = self.dLdV(dL_dO, dO_dV) # returns the final DxH matrix
-        c = (-self.eta) / (self.N * self.T)  # Constant value including eta and 1/n
+        c = (-self.eta) / (self.n_train * self.T)  # Constant value including eta and 1/n
         Vnew = self.V - (c * dL_dV)
 
         # Evalutation of dL/dU
@@ -212,7 +243,7 @@ class RNN:
     #     # Evaluation of dL_dV
     #     dLdVS = - self.Y + (self.Y * self.O)
     #     dLdV = np.tensordot(dLdVS, self.S, axes=((0, 1), (0, 1)))
-    #     c = self.eta / (self.n_train * self.T)  # Constant value including eta and 1/n
+    #     c = self.eta / (self.N * self.T)  # Constant value including eta and 1/n
     #     #c = self.eta
     #     # New matrix V
     #     Vnew = self.V - c * dLdV

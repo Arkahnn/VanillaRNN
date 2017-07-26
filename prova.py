@@ -1,12 +1,12 @@
 import matplotlib.pyplot as plt
 from VanillaRNN import *
-from Tools import *
+from tools import *
 
 
 def test_step2(aRnn):
-    aRnn.init_mainParam(aRnn.test[0:500])
-    aRnn.fwdRnn(aRnn.X, aRnn.S, aRnn.O)
-    lossTest = aRnn.lossFunction()
+    aRnn.init_main_params(aRnn.test[0:500])
+    aRnn.forward(aRnn.X, aRnn.S, aRnn.O)
+    lossTest = aRnn.loss()
     accTest = aRnn.accuracy()
     return lossTest, accTest
 
@@ -50,9 +50,9 @@ def printResults():
 
     print('RNN initialization')
     # Initialize RNN
-    myRnn = MyRNN(dictionary, train, valid, test, H_size, eta)
+    myRnn = RNN(dictionary, train, valid, test, H_size, eta)
 
-    V, U, W = importMatrix()
+    V, U, W = import_matrix()
 
     #print(V)
 
@@ -64,6 +64,7 @@ def printResults():
 
     output = phrase_generator(myRnn, 'I')
     print(output)
+    print('Test accuracy: ', myRnn.accuracy())
 
     '''
     Xidx = myRnn.X.argmax(axis=2) #Matrice X in versione NxT in cui in posizione X[i,j] è presente l'indice della parola corrispondente
@@ -136,8 +137,8 @@ def phrase_generator(aRnn, startW):
     while iter < 10:
         print('Iter = ', iter)
         print('Prhase dimension: ', len(listWords))
-        aRnn.init_mainParam([listWords])
-        aRnn.S, aRnn.O = aRnn.fwdRnn(aRnn.X, aRnn.S, aRnn.O)
+        aRnn.init_main_params([listWords])
+        aRnn.S, aRnn.O = aRnn.forward(aRnn.X, aRnn.S, aRnn.O)
         print('Dimensione O: ',aRnn.O.shape)
         print('Nuovo indice: ', aRnn.O.argmax(axis=2)[0][iter])
         print('Nuova parola: ', aRnn.dictionary[aRnn.O.argmax(axis=2)[0][iter]])
