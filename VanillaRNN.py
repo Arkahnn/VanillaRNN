@@ -101,6 +101,9 @@ class RNN:
         #return np.sum(dS_dU, axis=(0, 1))  # returns a HxD matrix
         return dS_dU # returns a HxD matrix
 
+    # Per il prodotto di Hadamard:
+    # Se ho una matrice NxTxD (O) e una NxTxH (S) invece di ciclare su N e su T, ciclare su D e sommare su N e T
+
     def dSdW(self, S0):
         #dS_dW = np.tile((1 - self.S**2).T, (self.D, self.H, 1, 1, 1)).T
         #dS_dW = (1 - self.S**2).repeat(self.H).reshape(self.N, self.T, self.H, self.H)
