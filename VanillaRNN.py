@@ -57,6 +57,7 @@ class RNN:
         return S, O
 
     """
+    # Verbose version
     def dLdO(self):
         # #dL_dO = np.tile(self.Y.T, (self.D, 1, 1, 1)).T
         # #dL_dO = self.Y.repeat(self.D).reshape(self.N, self.T, self.D, self.D)
@@ -74,9 +75,7 @@ class RNN:
         dO_dV = np.zeros((self.D, self.H))
         for i in range(self.N):
             for j in range(self.T):
-                #dOdVS = dO_dVS[i, j, :].repeat(self.H).reshape(self.D, self.H)
                 dO_dV += np.multiply(dOdVS[i, j, :, :], self.S[i, j, :])
-        #return np.sum(dO_dV, axis=(0, 1)) # returns a DxH matrix
         return dO_dV # returns a DxH matrix
 
     def dOdS(self, dO_dVS):
@@ -156,32 +155,33 @@ class RNN:
 
     # New version
     def dLdO(self):
-        return (-self.Y)/self.O
+        return (-self.Y)/self.O # returns a NxTxD matrix
 
     def dOdV(self, dO_dVS):
-        return np.einsum('ntd,nth->dh',dO_dVS,self.S)
+        return np.einsum('ntd,nth->dh',dO_dVS,self.S) # returns a DxH matrix
 
     def dOdS(self, dO_dVS):
-        return np.einsum('ntd,dh->dh', dO_dVS, self.V)
+        return np.einsum('ntd,dh->dh', dO_dVS, self.V) # returns a DxH matrix
 
     def dSdU(self):
         S = (1 - self.S ** 2)
-        return np.einsum('nth,ntd->hd', S, self.X)
+        return np.einsum('nth,ntd->hd', S, self.X) # returns a HxD matrix
 
     def dSdW(self, S0):
         S = (1 - self.S ** 2)
-        return np.einsum('nth,ntd->hd', S, S0)
+        return np.einsum('nth,nth->nth', S, S0) # returns an NxTxH matrix
 
     def dLdV(self, dL_dO, dO_dV):
-        return np.einsum('ntd,dh->dh', dL_dO, dO_dV)
+        return np.einsum('ntd,dh->dh', dL_dO, dO_dV) # returns a DxH matrix
 
-    def dLdU(self, dL_dO, dO_dS, dS_dU):
-        dO_dU = np.einsum('dh,hd->hd', dO_dS, dS_dU)
-        return np.einsum('ntd,hd->hd', dL_dO, dO_dU)
+    def dLdS(self, dL_dO, dO_dS):
+        return np.einsum('ntd,dh->dh', dL_dO, dO_dS) #returns a DxH matrix
 
-    def dLdW(self, dL_dO, dO_dS, dS_dW):
-        dL_dS = np.einsum('ntd,dh->dh', dL_dO, dO_dS)
-        return np.einsum('dh,hn->hn', dL_dS, dS_dW)
+    def dLdU(self, dL_dS, dS_dU):
+        return np.einsum('dh,hd->hd', dL_dS, dS_dU) # returns an HxD matrix
+
+    def dLdW(self, dL_dS, dS_dW):
+        return np.einsum('dm,nth->mh', dL_dS, dS_dW) # returns an HxH matrix
 
     # backward pass of the RNN
     def backprop(self):
@@ -200,7 +200,8 @@ class RNN:
         dO_dS = self.dOdS(dO_dVS) # returns a DxH matrix
         # dL_dS = dL_dO.dot(dO_dS) # returns a DxH matrix
         dS_dU = self.dSdU() # returns a HxD matrix
-        dL_dU = self.dLdU(dL_dO, dO_dS,dS_dU)
+        dL_dS = self.dLdS(dL_dO, dO_dS)
+        dL_dU = self.dLdU(dL_dS,dS_dU)
         # dL_dU = dL_dS.T * dS_dU # returns the final HxD matrix
         Unew = self.U - (c * dL_dU)
 
