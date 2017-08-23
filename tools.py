@@ -8,27 +8,28 @@ def import_file(a_file):
 
 
 def build_dictionary(fnpath):
+    limitWords = False
     len_dataset = 10000
     len_train = int(len_dataset * 0.5)
     len_val = int(len_dataset * 0.25)
     len_test = len_dataset - (len_train + len_val)
     body = import_file(fnpath)
-    for char_ in [',', '.', ';', ':', '?']:
+    for char_ in [',', '.', ';', ':', '?', '\'', ')', '-', '_']:
         body = body.replace(char_, '')
     strings = body.split('\n')
     strings = strings[:len_dataset]
-
-    # words = [s.split(' ') for s in strings] # Non funziona, restituisce una lista di liste e non serve a niente!
-    words = []
+    dataset = []
     for s in strings:
-        words += s.split()
-    dictionary = sorted(set(words))
-    dictionary = ['<startW>', '<endW>'] + dictionary
+        dataset += [[x.lower() for x in s.split()]]    # makes a list of str for each phrase; the str are all in lowercase
 
-    dataset = [# [dictionary[0]] +
-               s.split()
-               # + [dictionary[1]]
-                for s in strings]
+    if limitWords:
+        minLen = 10 #len(min(dataset, key = len))
+        dataset = [x[:minLen - 1] for x in dataset]
+
+    dataset = [x + ['<endW>'] for x in dataset]
+
+    dictionary = sorted(set([x for sub in dataset for x in sub]))   # flattens the list of lists, removes duplicates and makes a dictionary
+
     print('dataset dimension: ', len(dataset))
 
     train = dataset[:len_train]

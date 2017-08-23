@@ -5,7 +5,7 @@ from tools import *
 
 def test_step2(aRnn):
     aRnn.init_main_params(aRnn.test[0:500])
-    aRnn.forward(aRnn.X, aRnn.S, aRnn.O)
+    aRnn.forward(aRnn.X, aRnn.U, aRnn.S, aRnn.O)
     lossTest = aRnn.loss()
     accTest = aRnn.accuracy()
     return lossTest, accTest
@@ -42,7 +42,8 @@ def prova_init_param(aRnn, data):
     aRnn.O = np.zeros((aRnn.N, aRnn.T, aRnn.D))
 
 def printResults():
-    K, eta, H_size = 10, 0.9, 100
+    K, eta, alpha, H_size = 10, 0.9, 0.25, 101
+
 
     print('Dataset creation')
     # Create dictionary
@@ -50,7 +51,8 @@ def printResults():
 
     print('RNN initialization')
     # Initialize RNN
-    myRnn = RNN(dictionary, train, valid, test, H_size, eta)
+    myRnn = RNN(dictionary, train, valid, test, H_size, eta, alpha)
+    print('Dictionary dimension: ', len(myRnn.dictionary))
 
     V, U, W = import_matrix()
 
@@ -59,24 +61,33 @@ def printResults():
     myRnn.V = V
     myRnn.U = U
     myRnn.W = W
+    # wgtDU = myRnn.DU ** (-0.5)  # for the bias in X and U
+    # wgtH = myRnn.H ** (-0.5)
+    #
+    # myRnn.U = np.random.uniform(-wgtDU, wgtDU, (myRnn.H, myRnn.DU))  # Hx(D+1) matrix
+    # myRnn.W = np.random.uniform(-wgtH, wgtH, (myRnn.H, myRnn.H))  # HxH matrix
+    # myRnn.V = np.random.uniform(-wgtH, wgtH, (myRnn.D, myRnn.H))  # DxH matrix
 
-    loss, acc = test_step2(myRnn)
+    # loss, acc = test_step2(myRnn)
+    #
+    # Xidx = myRnn.X.argmax(axis=2)  # Matrice X in versione NxT in cui in posizione X[i,j] è presente l'indice della parola corrispondente
+    # print(Xidx[10, :])
+    # phrase10 = ''
+    # for j in range(myRnn.T):
+    #     if Xidx[10, j] != 239:
+    #         phrase10 += myRnn.dictionary[Xidx[10, j]] + ' '
+    # print(phrase10)
+    # print(myRnn.test[10])
 
-    output = phrase_generator(myRnn, 'I')
+    output = phrase_generator(myRnn, 'every')
     print(output)
-    print('Test accuracy: ', myRnn.accuracy())
+    # print('Test accuracy: ', myRnn.accuracy())
+
+
+
 
     '''
-    Xidx = myRnn.X.argmax(axis=2) #Matrice X in versione NxT in cui in posizione X[i,j] è presente l'indice della parola corrispondente
-    print(Xidx[10,:])
-    phrase10 = ''
-    for j in range(myRnn.T):
-        phrase10 += myRnn.dictionary[Xidx[10, j]] + ' '
-    print(phrase10)
-    print(myRnn.test[10])
-    
-    
-    input = prova_init_param(myRnn.test[9:12], myRnn.dictionary, myRnn.T, myRnn.D)
+    input = prova_init_param(myRnn.test[9:12])
     Xidx = input.argmax(axis=2)
     print('Sequenza di input')
     print(Xidx[1,:])
@@ -138,7 +149,7 @@ def phrase_generator(aRnn, startW):
         print('Iter = ', iter)
         print('Prhase dimension: ', len(listWords))
         aRnn.init_main_params([listWords])
-        aRnn.S, aRnn.O = aRnn.forward(aRnn.X, aRnn.S, aRnn.O)
+        aRnn.S, aRnn.O = aRnn.forward(aRnn.X, aRnn.U, aRnn.S, aRnn.O)
         print('Dimensione O: ',aRnn.O.shape)
         print('Nuovo indice: ', aRnn.O.argmax(axis=2)[0][iter])
         print('Nuova parola: ', aRnn.dictionary[aRnn.O.argmax(axis=2)[0][iter]])

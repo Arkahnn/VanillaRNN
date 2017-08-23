@@ -6,22 +6,30 @@ import tools
 
 class RNN:
 
-    def __init__(self, dictionary, train, val, test, H, eta):
+    def __init__(self, dictionary, train, val, test, H, eta, alpha):
         self.dictionary, self.train, self.val, self.test = dictionary, train, val, test
 
         self.D = len(dictionary)
-        self.T = max(len(s) for s in (train + val + test)) + 2
-        self.H, self.eta = H, eta
+        #self.DU = self.D + 1
+        self.T = max(len(s) for s in (train + val + test))
+        self.H, self.eta, self.alpha = H, eta, alpha
         self.n_train = len(train)
+        # self.bias = 0.33
         # print('Total number of phrases: ', self.N)
 
         # Weight assignment with Glorot uniform
         wgtD = self.D ** (-0.5)
+        #wgtDU = self.DU ** (-0.5) # for the bias in X and U
         wgtH = self.H ** (-0.5)
+        wgtBias = random.uniform(-wgtH, wgtH)
 
-        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # HxD matrix
+        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # Hx(D+1) matrix
         self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
         self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+
+        self.U[-1,:] = wgtBias
+        self.V[:, -1] = wgtBias
+        self.W[:, -1] = wgtBias
 
         # weight assignment with simple weights
         # self.U = np.random.randn(self.H, self.D) * 0.01
@@ -32,190 +40,138 @@ class RNN:
         # Set X (input)
         self.N = len(data)
         self.X = np.zeros((self.N, self.T, self.D))
+        #self.X[:,:,-1] = 1 # bias
         for n, sent in enumerate(data):
             self.X[n, range(len(sent)), [self.dictionary.index(x) for x in sent]] = 1.0
 
         # Set Y (labels)
         self.Y = np.zeros((self.N, self.T, self.D))
-        self.Y[:, :-1, :] = self.X[:, 1:, :]
+        self.Y[:, :-1, :] = self.X[:, 1:, :] # X[:, 1:, :-1] for the bias
         # self.Y[:, -1:, 2] = 1
 
         # Set S and O (hidden output and output)
         self.S = np.zeros((self.N, self.T, self.H))
+        self.S[:, :, -1] = 1
         self.O = np.zeros((self.N, self.T, self.D))
 
     # forward step of the RNN
-    def forward(self, X, S, O):
+    def forward(self, X, U, S, O):
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
         # 3. U,W,V = L(y,o)
 
         for t in range(self.T):
-            S[:, t, :] = self.out_HL(X[:, t, :].T, S[:, t - 1, :].T).T
+            S[:, t, :] = self.out_HL(X[:, t, :].T, U, S[:, t - 1, :].T).T
             # O[:, t, :] = self.softmax(self.V.dot(S[:, t, :].T)).T
-            O[:, t, :] = self.softmax(np.dot(S[:, t, :], self.V.T))
+            O[:, t, :] = self.softmax(np.dot(self.V, S[:, t, :].T)).T
         return S, O
 
-    """
-    # Verbose version
-    def dLdO(self):
-        # #dL_dO = np.tile(self.Y.T, (self.D, 1, 1, 1)).T
-        # #dL_dO = self.Y.repeat(self.D).reshape(self.N, self.T, self.D, self.D)
-        # dL_dO = np.zeros((self.D, self.D))
-        # for i in range(self.N):
-        #     for j in range(self.T):
-        #         Y = self.Y[i,j,:].repeat(self.D).reshape(self.D, self.D)
-        #         dL_dO += np.multiply(Y, 1.0/self.O[i,j,:])
-        # #return np.sum(dL_dO, axis=(0,1)) #returns a DxD matrix
-        return np.multiply(-self.Y, 1.0/self.O) # returns a NxTxD matrix
-
-    def dOdV(self, dO_dVS):
-        #dO_dV = np.tile(dO_dVS.T, (self.H, 1, 1, 1)).T
-        dOdVS = dO_dVS.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
-        dO_dV = np.zeros((self.D, self.H))
-        for i in range(self.N):
-            for j in range(self.T):
-                dO_dV += np.multiply(dOdVS[i, j, :, :], self.S[i, j, :])
-        return dO_dV # returns a DxH matrix
-
-    def dOdS(self, dO_dVS):
-        #dO_dS = np.tile(dO_dVS.T, (self.H, 1, 1, 1)).T
-        #dO_dS = dO_dVS.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
-        dO_dS = np.zeros((self.D, self.H))
-        for i in range(self.N):
-            for j in range(self.T):
-                dOdVS = dO_dVS[i, j, :].repeat(self.H).reshape(self.D, self.H)
-                dO_dS += np.multiply(dOdVS, self.V[:, :])
-        #return np.sum(dO_dS, axis=(0, 1)) # returns a DxH matrix
-        return dO_dS # returns a DxH matrix
-
-    def dSdU(self):
-        #dS_dU = np.tile((1 - self.S**2).T, (self.D, 1, 1, 1)).T
-        #dS_dU = (1 - self.S**2).repeat(self.D).reshape(self.N, self.T, self.H, self.D)
-        S = (1 - self.S**2)
-        dS_dU = np.zeros((self.H, self.D))
-        for i in range(self.N):
-            for j in range(self.T):
-                dS_dArgT = S[i, j, :].repeat(self.D).reshape(self.H, self.D)
-                dS_dU += np.multiply(dS_dArgT, self.V.T)
-        #return np.sum(dS_dU, axis=(0, 1))  # returns a HxD matrix
-        return dS_dU # returns a HxD matrix
-
-    # Per il prodotto di Hadamard:
-    # Se ho una matrice NxTxD(xH) (O) e una NxTxH (S) invece di ciclare su N e su T, ciclare su D e sommare su N e T
-
-    def dSdW(self, S0):
-        #dS_dW = np.tile((1 - self.S**2).T, (self.D, self.H, 1, 1, 1)).T
-        #dS_dW = (1 - self.S**2).repeat(self.H).reshape(self.N, self.T, self.H, self.H)
-        #dS_dW = dS_dW.repeat(self.D).reshape(self.N, self.T, self.H, self.H, self.D)
-        S = (1 - self.S**2)
-        #dS_dW = np.zeros((self.H, self.H, self.D))
-        dS_dArgT1 = S.repeat(self.H).reshape(self.N, self.T, self.H, self.H)
-        dS_dW = np.zeros((self.H, self.H))
-        for i in range(self.N):
-            for j in range(self.T):
-                dS_dW += np.multiply(dS_dArgT1[i,j,:,:],S0[i,j,:])
-        # for i in range(self.N):
-        #     for j in range(self.T):
-        #         dS_dArgT1 = S[i,j,:].repeat(self.H).reshape(self.H, self.H)
-        #         dS_dW += dS_dArgT1.repeat(self.D).reshape(self.H, self.H, self.D)
-        #
-        # for k in range(self.D):
-        #     dS_dW[:, :, k] = np.multiply(dS_dW[:, :, k], S0[i, j, :].T)
-        #return np.sum(dS_dW, axis=(0, 1))  # returns a HxHxD matrix
-        return dS_dW # returns an HxD matrix
-
-    def dLdV(self, dL_dO, dO_dV):
-        dL_dO1 = dL_dO.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
-        dL_dV = np.zeros((self.D, self.H))
-        for i, j, k in zip(range(self.N), range(self.T), range(self.D)):
-            dL_dV += np.multiply(dL_dO1[i, j, :, :], dO_dV)
-        return dL_dV # returns a DxH matrix
-
-    def dLdU(self, dL_dO, dO_dS, dS_dU):
-        dO_dU = np.multiply(dO_dS,dS_dU.T) # DxH matrix
-        dL_dO1 = dL_dO.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
-        dL_dU = np.zeros((self.D, self.H))
-        for i, j in zip(range(self.N), range(self.T)):
-            dL_dU += np.multiply(dL_dO1[i,j,:,:], dL_dU)
-        return dL_dU.T # returns an HxD matrix
-
-
-    def dLdW(self, dL_dO, dO_dS, dS_dW):
-        dO_dW = np.zeros((self.H, self.H))
-        for i in range(self.D):
-            dO_dW += np.multiply(dO_dS[i,:],dS_dW)
-
-        dL_dO1 = dL_dO.repeat(self.H).reshape(self.N, self.T, self.D, self.H)
-        dL_dW = np.zeros((self.H, self.H))
-        for i, j, k in zip(range(self.N), range(self.T), range(self.D)):
-            dL_dW += np.multiply(dL_dO1[i,j,k,:], dO_dW)
-        return dL_dW # returns an HxH matrix
-    """
-
     # New version
-    def dLdO(self):
-        return (-self.Y)/self.O # returns a NxTxD matrix
+    def dLdO(self, Y, O):
+        #return (-self.Y)/self.O # returns a NxTxD matrix
+        return -Y / O # returns a Dx1 vector
 
-    def dOdV(self, dO_dVS):
-        return np.einsum('ntd,nth->dh',dO_dVS,self.S) # returns a DxH matrix
+    def dOdV(self, dO_dVS, S):
+        #return np.einsum('ntd,nth->dh',dO_dVS,self.S) # returns a DxH matrix
+        #return np.einsum('ik,il->kl', dO_dVS, S)  # returns a DxH matrix
+        return dO_dVS[:, None] * S[None, :] # Return a DxH matrix
 
     def dOdS(self, dO_dVS):
-        return np.einsum('ntd,dh->dh', dO_dVS, self.V) # returns a DxH matrix
+        #return np.einsum('ntd,dh->dh', dO_dVS, self.V) # returns a DxH matrix
+        #return np.einsum('ik,kl->kl', dO_dVS, self.V)  # returns a DxH matrix
+        return dO_dVS[:, None] * self.V # Returns a DxH matrix - Da verificare!!!
 
-    def dSdU(self):
-        S = (1 - self.S ** 2)
-        return np.einsum('nth,ntd->hd', S, self.X) # returns a HxD matrix
+    def dSdU(self, S, X):
+        S = (1 - S ** 2)
+        #return np.einsum('nth,ntd->hd', S, self.X) # returns a HxD matrix
+        #return np.einsum('ik,il->kl', S, X)  # returns a Hx(D+1) matrix
+        return S[:, None] * X[None, :] # Returns an HxD matrix
 
-    def dSdW(self, S0):
-        S = (1 - self.S ** 2)
-        return np.einsum('nth,nth->nth', S, S0) # returns an NxTxH matrix
+    def dSdW(self, S, S0):
+        #S = (1 - S ** 2)
+        #return np.einsum('nth,nth->nth', S, S0) # returns an NxTxH matrix
+        #return np.einsum('ik,ik->ik', S, S0)  # returns an NxH matrix
+        return S[:, None] * S0[None, :] # Returns a HxH vector
 
     def dLdV(self, dL_dO, dO_dV):
-        return np.einsum('ntd,dh->dh', dL_dO, dO_dV) # returns a DxH matrix
+        #return np.einsum('ntd,dh->dh', dL_dO, dO_dV) # returns a DxH matrix
+        #return np.einsum('ik,kl->kl', dL_dO, dO_dV)  # returns a DxH matrix
+        return dL_dO[:, None] * dO_dV # Returns a DxH matrix
 
     def dLdS(self, dL_dO, dO_dS):
-        return np.einsum('ntd,dh->dh', dL_dO, dO_dS) #returns a DxH matrix
+        #return np.einsum('ntd,dh->dh', dL_dO, dO_dS) #returns a DxH matrix
+        #return np.einsum('ik,kl->kl', dL_dO, dO_dS)  # returns a DxH matrix
+        return dL_dO.dot(dO_dS) # Returns an Hx1 matrix
 
     def dLdU(self, dL_dS, dS_dU):
-        return np.einsum('dh,hd->hd', dL_dS, dS_dU) # returns an HxD matrix
+        #return np.einsum('dh,hd->hd', dL_dS, dS_dU) # returns an HxD matrix
+        #return np.einsum('ij,jk->jk', dL_dS, dS_dU)  # returns an Hx(D+1) matrix
+        return dL_dS[:, None] * dS_dU # Return HxD matrix
 
     def dLdW(self, dL_dS, dS_dW):
-        return np.einsum('dm,nth->mh', dL_dS, dS_dW) # returns an HxH matrix
+        #return np.einsum('dm,nth->mh', dL_dS, dS_dW) # returns an HxH matrix
+        # dL_dW = np.zeros((self.H, self.H))
+        # # for i in range(self.N):
+        # #     for j in range(self.T):
+        # #         for k in range(self.D):
+        # #             dL_dW += dS_dW[i, j, :] * dL_dS[k, :]
+        # dS_dW1 = dS_dW.repeat(self.H).reshape(self.N, self.H, self.H)
+        # dS_dW1 = dS_dW1.sum(axis=0)
+        # for i in range(self.D):
+        #     dL_dW += dS_dW1 * dL_dS[i,:]
+        # return dL_dW
+        #return np.einsum('dm,nth->mh', dL_dS, dS_dW)  # returns an HxH matrix
+        return dL_dS[:, None] * dS_dW # Returns an HxH matrix
 
     # backward pass of the RNN
     def backprop(self):
-
-        # Evaluation of dL/dV
-        print('Evaluation of dL/dV')
-        dL_dO = self.dLdO() # returns a DxD matrix
-        dO_dVS = self.O*(1 - self.O)
-        dO_dV = self.dOdV(dO_dVS) # returns a DxH matrix
-        dL_dV = self.dLdV(dL_dO, dO_dV) # returns the final DxH matrix
-        c = (-self.eta) / (self.n_train * self.T)  # Constant value including eta and 1/n
-        Vnew = self.V - (c * dL_dV)
-
-        # Evalutation of dL/dU
-        print('Evaluation of dL/dU')
-        dO_dS = self.dOdS(dO_dVS) # returns a DxH matrix
-        # dL_dS = dL_dO.dot(dO_dS) # returns a DxH matrix
-        dS_dU = self.dSdU() # returns a HxD matrix
-        dL_dS = self.dLdS(dL_dO, dO_dS)
-        dL_dU = self.dLdU(dL_dS,dS_dU)
-        # dL_dU = dL_dS.T * dS_dU # returns the final HxD matrix
-        Unew = self.U - (c * dL_dU)
-
-        # Evaluation of dL/dW
-        print('Evaluation of dL/dW')
+        delta_V, delta_U, delta_W = np.zeros(self.V.shape), np.zeros(self.U.shape), np.zeros(self.W.shape)
+        dL_dV, dL_dU, dL_dW = np.zeros(self.V.shape), np.zeros(self.U.shape), np.zeros(self.W.shape)
         S0 = np.zeros(self.S.shape)  # S(t-1)
         S0[:, 1:, :] = self.S[:, :-1, :]
-        dS_dW = self.dSdW(S0) # returns a HxHxD matrix
-        dL_dW = self.dLdW(dL_dO, dO_dS, dS_dW)
-        #dL_dW = np.tensordot(dL_dS, dS_dW, axes=(0, 2))
-        #dL_dW = np.tensordot(dL_dS, dS_dW, axes=((0,1),(2,1)))
-        #print('dL/dW dimensions: ', dL_dW.shape)
-        Wnew = self.W - (c * dL_dW)
+        S2 = 1 - self.S**2
+        c = self.eta
 
+        for n in range(self.N):
+            for t in range(self.T):
+                # Evaluation of dL/dV
+                # print('Evaluation of dL/dV')
+                dL_dO = self.dLdO(self.Y[n, t, :], self.O[n, t, :]) # returns a NxD matrix
+                dO_dVS = self.O[n, t, :] * (1.0 - self.O[n, t, :]) # returns a NxD matrix
+                dO_dV = self.dOdV(dO_dVS, self.S[n, t, :]) # returns a DxH matrix
+                dL_dV += self.dLdV(dL_dO, dO_dV) # returns the final DxH matrix
+                #c = self.eta / (self.N * self.T)  # Constant value including eta and 1/n
+
+
+                # print('V equality: ',np.array_equal(self.V, Vnew))
+
+                # Evalutation of dL/dU
+                # print('Evaluation of dL/dU')
+                dO_dS = self.dOdS(dO_dVS) # returns a DxH matrix
+                # dL_dS = dL_dO.dot(dO_dS) # returns a DxH matrix
+                dS_dU = self.dSdU(S2[n, t, :], self.X[n, t, :]) # returns a HxD matrix
+                dL_dS = self.dLdS(dL_dO, dO_dS)
+                dL_dU += self.dLdU(dL_dS,dS_dU)
+                # dL_dU = dL_dS.T * dS_dU # returns the final HxD matrix
+
+                # print('U equality: ', np.array_equal(self.U, Unew))
+
+                # Evaluation of dL/dW
+                # print('Evaluation of dL/dW')
+                dS_dW = self.dSdW(S2[n, t, :], S0[n, t, :]) # returns a HxD matrix
+                dL_dW += self.dLdW(dL_dS, dS_dW)
+                #dL_dW = np.tensordot(dL_dS, dS_dW, axes=(0, 2))
+                #dL_dW = np.tensordot(dL_dS, dS_dW, axes=((0,1),(2,1)))
+                #print('dL/dW dimensions: ', dL_dW.shape)
+
+                # print('W equality: ', np.array_equal(self.W, Wnew))
+
+        Vnew = self.V - c * dL_dV # (self.alpha * delta_V - c * dL_dV)
+        # delta_V = dL_dV
+        Unew = self.U - c * dL_dU # (self.alpha * delta_U - c * dL_dU)
+        # delta_U = dL_dU
+        Wnew = self.W - c * dL_dW # (self.alpha * delta_W - c * dL_dW)
+        # delta_W = dL_dW
         return (Vnew, Unew, Wnew)
 
     # #Old Version
@@ -296,34 +252,42 @@ class RNN:
         print('Mini-batch size: ', self.N)
         print('Number of mini-batches: ', n_mini_batches)
 
+        # Bias introduction on X and U
+        
+
         for i in range(K):
             print('Epoch ', i, '/', K, ':')
             random.shuffle(idx_train)
-            loss_t, loss_v = (0.0, 0.0)
+            loss_t, loss_v = 0.0, 0.0
 
             # forward and backprop steps
             for j in range(n_mini_batches):
                 print('    Batch ', j + 1, '/', n_mini_batches)
                 self.init_main_params([self.train[i] for i in idx_train[(j * self.N):((j + 1) * self.N)]])
-                self.S, self.O = self.forward(self.X, self.S, self.O)
+                self.S, self.O = self.forward(self.X, self.U, self.S, self.O)
                 self.V, self.U, self.W = self.backprop()
                 loss_t += self.loss()
-            loss_train.append(loss_t)
+                print('Loss: ', self.loss())
+            loss = loss_t/n_mini_batches
+            print('Mean loss: ', loss)
+            loss_train.append(loss)
             print('    Loss: ', loss_t)
             # validation step
             print('Validation: ')
             for j in range(len(self.val) // self.N):
                 print('    Batch ', j + 1, '/', len(self.val) // self.N)
                 self.init_main_params(self.val[(j * self.N):((j + 1) * self.N)])
-                self.forward(self.X, self.S, self.O)
+                self.forward(self.X, self.U, self.S, self.O)
                 loss_v += self.loss()
-            loss_val.append(loss_v)
+                print('Validation loss: ', self.loss())
+                print('Validation accuracy: ', self.accuracy())
+            loss_val.append(loss_v/(len(self.val) // self.N))
 
         return loss_train, loss_val
 
     def testing(self):
         self.init_main_params(self.test)
-        self.forward(self.X, self.S, self.O)
+        self.forward(self.X, self.U, self.S, self.O)
         print('N = ', self.N)
         loss_test = self.loss()
         acc_test = self.accuracy()
@@ -337,8 +301,10 @@ class RNN:
         return s / np.sum(s, axis=0)
 
     # Function that implements the activation of the hidden layer
-    def out_HL(self, x, s_prev):
-        return np.tanh(np.dot(self.U, x) + np.dot(self.W, s_prev))
+    def out_HL(self, x, U, s_prev):
+        # print('X shape: ', self.X.shape)
+        # print('U shape: ', self.U.shape)
+        return np.tanh(np.dot(U, x) + np.dot(self.W, s_prev)) # which verse of W am I using? which weights will be upgraded?
 
     # Function that implements the loss function computation
     def loss(self):
@@ -348,7 +314,8 @@ class RNN:
         return a.sum()
         '''
         O_ = np.log(self.O)
-        c = -1 / (self.N * self.T)
+        #c = -1 /(self.N * self.T)
+        c = -1
         return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
 
     def accuracy(self):

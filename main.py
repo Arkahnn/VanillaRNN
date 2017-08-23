@@ -8,9 +8,9 @@ import tools
 
 if __name__ == "__main__":
     # Set a seed to test the network. After having tested it, you can take it out
-    np.random.seed(314)
-    random.seed(314)
-    K, eta, H_size, mini_batch_size = 10, 1e-4, 100, 500
+    np.random.seed(256)
+    random.seed(256)
+    K, eta, alpha, H_size, mini_batch_size = 30, 1e-4, 0, 101, 500
 
     print('Dataset creation')
     # Create dictionary
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     print('RNN initialization')
     # Initialize RNN
-    myRnn = VanillaRNN.RNN(dictionary, train, valid, test, H_size, eta)
+    myRnn = VanillaRNN.RNN(dictionary, train, valid, test, H_size, eta, alpha)
 
     print('Train the RNN')
     # Train the RNN
@@ -46,10 +46,12 @@ if __name__ == "__main__":
 
     with open('lossVal.txt', 'w') as f:
         f.write(loss)
+        f.close()
 
     print('Loss value of the test set: ', loss_test)
 
     t = list(range(K))
+    # loss_train = loss_train/K
     plt.plot(t, loss_train, 'ro', label='Training Set')
     plt.plot(t, loss_val, 'g^', label='Validation Set')
     plt.xlabel('time')
