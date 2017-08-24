@@ -10,7 +10,7 @@ if __name__ == "__main__":
     # Set a seed to test the network. After having tested it, you can take it out
     np.random.seed(256)
     random.seed(256)
-    K, eta, alpha, H_size, mini_batch_size = 30, 1e-4, 0, 101, 500
+    K, eta, alpha, H_size, mini_batch_size = 16, 1e-4, 0, 101, 500
 
     print('Dataset creation')
     # Create dictionary

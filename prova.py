@@ -79,7 +79,7 @@ def printResults():
     # print(phrase10)
     # print(myRnn.test[10])
 
-    output = phrase_generator(myRnn, 'every')
+    output = phrase_generator(myRnn, 'some')
     print(output)
     # print('Test accuracy: ', myRnn.accuracy())
 

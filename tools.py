@@ -26,7 +26,7 @@ def build_dictionary(fnpath):
         minLen = 10 #len(min(dataset, key = len))
         dataset = [x[:minLen - 1] for x in dataset]
 
-    dataset = [x + ['<endW>'] for x in dataset]
+    dataset = [['<startW>'] + x + ['<endW>'] for x in dataset]
 
     dictionary = sorted(set([x for sub in dataset for x in sub]))   # flattens the list of lists, removes duplicates and makes a dictionary
 

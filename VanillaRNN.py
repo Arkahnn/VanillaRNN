@@ -131,6 +131,8 @@ class RNN:
         S0[:, 1:, :] = self.S[:, :-1, :]
         S2 = 1 - self.S**2
         c = self.eta
+        #l = [len(a) for a in self.train]
+        #c = self.eta/(self.N * sum(l))
 
         for n in range(self.N):
             for t in range(self.T):
@@ -267,9 +269,9 @@ class RNN:
                 self.S, self.O = self.forward(self.X, self.U, self.S, self.O)
                 self.V, self.U, self.W = self.backprop()
                 loss_t += self.loss()
-                print('Loss: ', self.loss())
+                # print('Loss: ', self.loss())
             loss = loss_t/n_mini_batches
-            print('Mean loss: ', loss)
+            #print('Mean loss: ', loss)
             loss_train.append(loss)
             print('    Loss: ', loss_t)
             # validation step
@@ -278,9 +280,12 @@ class RNN:
                 print('    Batch ', j + 1, '/', len(self.val) // self.N)
                 self.init_main_params(self.val[(j * self.N):((j + 1) * self.N)])
                 self.forward(self.X, self.U, self.S, self.O)
+                l = [len(a) for a in self.val]
+                #loss_v += self.loss()/(self.N * sum(l))
                 loss_v += self.loss()
                 print('Validation loss: ', self.loss())
                 print('Validation accuracy: ', self.accuracy())
+            l = []
             loss_val.append(loss_v/(len(self.val) // self.N))
 
         return loss_train, loss_val
