@@ -79,7 +79,7 @@ def printResults():
     # print(phrase10)
     # print(myRnn.test[10])
 
-    output = phrase_generator(myRnn, 'some')
+    output = phrase_generator(myRnn, '<startW>')
     print(output)
     # print('Test accuracy: ', myRnn.accuracy())
 
@@ -145,7 +145,8 @@ def phrase_generator(aRnn, startW):
     listWords += [startW]
     output += startW + ' '
 
-    while iter < 10:
+    while (listWords[-1] != '<endW>') and (iter < 10):
+        print(listWords[-1] is '<endW>')
         print('Iter = ', iter)
         print('Prhase dimension: ', len(listWords))
         aRnn.init_main_params([listWords])

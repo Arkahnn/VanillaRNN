@@ -10,7 +10,7 @@ if __name__ == "__main__":
     # Set a seed to test the network. After having tested it, you can take it out
     np.random.seed(256)
     random.seed(256)
-    K, eta, alpha, H_size, mini_batch_size = 16, 1e-4, 0, 101, 500
+    K, eta, alpha, H_size, mini_batch_size = 500, 1e-4, 0.0, 101, 500
 
     print('Dataset creation')
     # Create dictionary
@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     print('Train the RNN')
     # Train the RNN
-    loss_train, loss_val = myRnn.training(K, mini_batch_size)
+    loss_train, loss_val, acc_train, acc_val = myRnn.training(K, mini_batch_size)
 
     # Save last weights in a file
     np.savetxt('Vmat.txt', myRnn.V, delimiter=',')
@@ -48,15 +48,51 @@ if __name__ == "__main__":
         f.write(loss)
         f.close()
 
+    acc = ''
+    for s in acc_train:
+        acc += str(s) + ', '
+    file = open('accTrain.txt', 'w')
+    file.write(acc)
+    file.close()
+
+    acc = ''
+    for s in acc_val:
+        acc += str(s) + ', '
+
+    with open('accVal.txt', 'w') as f:
+        f.write(acc)
+        f.close()
+
     print('Loss value of the test set: ', loss_test)
 
-    t = list(range(K))
+    t = list(range(len(loss_train)))
     # loss_train = loss_train/K
     plt.plot(t, loss_train, 'ro', label='Training Set')
     plt.plot(t, loss_val, 'g^', label='Validation Set')
     plt.xlabel('time')
     plt.ylabel('loss value')
     plt.title('Loss function trend')
+    plt.grid(True)
+    plt.legend()
+    # plt.savefig("test.png")
+    plt.show()
+
+    t = list(range(len(acc_train)))
+    # loss_train = loss_train/K
+    # plt.plot(t, acc_train, 'ro', label='Training Set')
+    plt.plot(t, acc_val, 'g^', label='Validation Set')
+    plt.xlabel('time')
+    plt.ylabel('accuracy value')
+    plt.title('Accuracy function trend')
+    plt.grid(True)
+    plt.legend()
+    # plt.savefig("test.png")
+    plt.show()
+
+    plt.plot(acc_val, loss_val, 'g^', label='Validation Set')
+    plt.xlabel('accuracy value')
+    plt.ylabel('loss value')
+    plt.title('Loss VS Accuracy trend')
     plt.grid(True)
     plt.legend()
     # plt.savefig("test.png")

@@ -23,18 +23,19 @@ class RNN:
         wgtH = self.H ** (-0.5)
         wgtBias = random.uniform(-wgtH, wgtH)
 
-        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # Hx(D+1) matrix
-        self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
-        self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+        # self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # Hx(D+1) matrix
+        # self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        # self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+
+        # weight assignment with simple weights
+        self.U = np.random.randn(self.H, self.D) * 0.01
+        self.W = np.random.randn(self.H, self.H) * 0.01
+        self.V = np.random.randn(self.D, self.H) * 0.01
 
         self.U[-1,:] = wgtBias
         self.V[:, -1] = wgtBias
         self.W[:, -1] = wgtBias
 
-        # weight assignment with simple weights
-        # self.U = np.random.randn(self.H, self.D) * 0.01
-        # self.W = np.random.randn(self.H, self.H) * 0.01
-        # self.V = np.random.randn(self.D, self.H) * 0.01
 
     def init_main_params(self, data):
         # Set X (input)
@@ -51,7 +52,9 @@ class RNN:
 
         # Set S and O (hidden output and output)
         self.S = np.zeros((self.N, self.T, self.H))
-        self.S[:, :, -1] = 1
+        self.S[:, :, -1] = 1.0
+        for c in data:
+            self.S[:, len(c):,-1] = 0.0
         self.O = np.zeros((self.N, self.T, self.D))
 
     # forward step of the RNN
@@ -59,9 +62,14 @@ class RNN:
         # 1. s = tanh(Ux + Ws_prev)
         # 2. o = sigma(Vs)
         # 3. U,W,V = L(y,o)
+        reLU = False
 
         for t in range(self.T):
-            S[:, t, :] = self.out_HL(X[:, t, :].T, U, S[:, t - 1, :].T).T
+            if reLU:
+                S[:, t, :] = (self.U.dot(X[:, t, :].T) + self.W.dot(S[:, t - 1, :].T)).T
+                S[:, t, :] = S[:, t, :] * (S[:, t, :] > 0)
+            else:
+                S[:, t, :] = self.out_HL(X[:, t, :].T, U, S[:, t - 1, :].T).T
             # O[:, t, :] = self.softmax(self.V.dot(S[:, t, :].T)).T
             O[:, t, :] = self.softmax(np.dot(self.V, S[:, t, :].T)).T
         return S, O
@@ -125,6 +133,7 @@ class RNN:
 
     # backward pass of the RNN
     def backprop(self):
+        reLU = False
         delta_V, delta_U, delta_W = np.zeros(self.V.shape), np.zeros(self.U.shape), np.zeros(self.W.shape)
         dL_dV, dL_dU, dL_dW = np.zeros(self.V.shape), np.zeros(self.U.shape), np.zeros(self.W.shape)
         S0 = np.zeros(self.S.shape)  # S(t-1)
@@ -134,14 +143,21 @@ class RNN:
         #l = [len(a) for a in self.train]
         #c = self.eta/(self.N * sum(l))
 
+        Y1 = self.Y.nonzero()  # elements of Y different from zero
+        dL_dVS = self.Y
+        dL_dVS[Y1[0], Y1[1], Y1[2]] = self.O[Y1[0], Y1[1], Y1[2]] - 1
+
         for n in range(self.N):
             for t in range(self.T):
                 # Evaluation of dL/dV
                 # print('Evaluation of dL/dV')
-                dL_dO = self.dLdO(self.Y[n, t, :], self.O[n, t, :]) # returns a NxD matrix
-                dO_dVS = self.O[n, t, :] * (1.0 - self.O[n, t, :]) # returns a NxD matrix
-                dO_dV = self.dOdV(dO_dVS, self.S[n, t, :]) # returns a DxH matrix
-                dL_dV += self.dLdV(dL_dO, dO_dV) # returns the final DxH matrix
+                # dL_dO = self.dLdO(self.Y[n, t, :], self.O[n, t, :]) # returns a NxD matrix
+                # dO_dVS = self.O[n, t, :] * (1.0 - self.O[n, t, :]) # returns a NxD matrix
+                # dO_dV = self.dOdV(dO_dVS, self.S[n, t, :]) # returns a DxH matrix
+                # dL_dV += self.dLdV(dL_dO, dO_dV) # returns the final DxH matrix
+
+
+                # dL_dV += self.dLdV(dL_dVS, dO_dV)  # returns the final DxH matrix
                 #c = self.eta / (self.N * self.T)  # Constant value including eta and 1/n
 
 
@@ -149,103 +165,47 @@ class RNN:
 
                 # Evalutation of dL/dU
                 # print('Evaluation of dL/dU')
-                dO_dS = self.dOdS(dO_dVS) # returns a DxH matrix
-                # dL_dS = dL_dO.dot(dO_dS) # returns a DxH matrix
-                dS_dU = self.dSdU(S2[n, t, :], self.X[n, t, :]) # returns a HxD matrix
-                dL_dS = self.dLdS(dL_dO, dO_dS)
-                dL_dU += self.dLdU(dL_dS,dS_dU)
+                # dO_dS = self.dOdS(dO_dVS) # returns a DxH matrix
+                # # dL_dS = dL_dO.dot(dO_dS) # returns a DxH matrix
+                # dS_dU = self.dSdU(S2[n, t, :], self.X[n, t, :]) # returns a HxD matrix
+                # dL_dS = self.dLdS(dL_dO, dO_dS)
+                # dL_dU += self.dLdU(dL_dS,dS_dU)
                 # dL_dU = dL_dS.T * dS_dU # returns the final HxD matrix
+
 
                 # print('U equality: ', np.array_equal(self.U, Unew))
 
                 # Evaluation of dL/dW
                 # print('Evaluation of dL/dW')
-                dS_dW = self.dSdW(S2[n, t, :], S0[n, t, :]) # returns a HxD matrix
-                dL_dW += self.dLdW(dL_dS, dS_dW)
-                #dL_dW = np.tensordot(dL_dS, dS_dW, axes=(0, 2))
-                #dL_dW = np.tensordot(dL_dS, dS_dW, axes=((0,1),(2,1)))
+                # dS_dW = self.dSdW(S2[n, t, :], S0[n, t, :]) # returns a HxD matrix
+                # dL_dW += self.dLdW(dL_dS, dS_dW)
+
+
                 #print('dL/dW dimensions: ', dL_dW.shape)
 
                 # print('W equality: ', np.array_equal(self.W, Wnew))
 
-        Vnew = self.V - c * dL_dV # (self.alpha * delta_V - c * dL_dV)
-        # delta_V = dL_dV
-        Unew = self.U - c * dL_dU # (self.alpha * delta_U - c * dL_dU)
-        # delta_U = dL_dU
-        Wnew = self.W - c * dL_dW # (self.alpha * delta_W - c * dL_dW)
-        # delta_W = dL_dW
-        return (Vnew, Unew, Wnew)
+                # Versione del codice originale
+                dL_dV += np.outer(dL_dVS[n, t, :], self.S[n, t, :].T)
+                dL_dS = self.V.T.dot(dL_dVS[n, t, :])
+                if reLU:
+                    dL_dargTanh = (dL_dS > 0).astype(int)
+                else:
+                    dL_dargTanh = dL_dS * S2[n, t, :]
+                dL_dU += np.outer(dL_dargTanh, self.X[n, t, :].T)
+                dL_dW += np.outer(dL_dargTanh, S0[n, t, :].T)
 
-    # #Old Version
-    # def backprop(self):
-    #     '''
-    #     #Good version
-    #
-    #     # Evaluation of dLdV
-    #     dL_dO = self.Y / self.O
-    #     dO_dVS = self.O * (1.0 - self.O)
-    #     dL_dV = np.tensordot(dL_dO*dO_dVS, self.S, axes=((0, 1), (0, 1)))
-    #     c = (-self.eta) / (self.N * self.T) # Constant value including eta and 1/n
-    #     # New matrix V
-    #     Vnew = self.V - c * dL_dV
-    #
-    #     # Verifying the Good and the Third versions
-    #     A = - self.Y + (self.Y * self.O)
-    #     dL_dO = self.Y / self.O
-    #     dO_dVS = self.O * (1.0 - self.O)
-    #     B = dL_dO*dO_dVS
-    #     print('Uguaglianza tra versione semplificata ed espansa: ', A == B)
-    #     '''
-    #
-    #     # Third version - As good as the Good version
-    #
-    #     # Evaluation of dL_dV
-    #     dLdVS = - self.Y + (self.Y * self.O)
-    #     dLdV = np.tensordot(dLdVS, self.S, axes=((0, 1), (0, 1)))
-    #     c = self.eta / (self.N * self.T)  # Constant value including eta and 1/n
-    #     #c = self.eta
-    #     # New matrix V
-    #     Vnew = self.V - c * dLdV
-    #
-    #
-    #     # Evaluation of dLdU
-    #     S0 = np.zeros(self.S.shape) # S(t-1)
-    #     S0[:, 1:, :] = self.S[:, :-1, :]
-    #
-    #
-    #     # Second version of the second part - correct
-    #     dtanh = (1 - np.power(self.S, 2))
-    #     dLdS = np.tensordot(dLdVS, self.V, axes=(2, 0))
-    #     dLdU = np.tensordot(dLdS * dtanh, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
-    #     Unew = self.U - c * dLdU
-    #
-    #     # Evaluation of dLdW
-    #     dL_dW = np.tensordot(dLdS * dtanh, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-    #     Wnew = self.W - (c * dL_dW)
-    #
-    #
-    #     '''
-    #     # First version of the second part - not correct
-    #     dS_dargTanh1 = 1 - self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-    #     dS_dargTanh2 = 1 + self.S # Decomposition of dSdargTanh = tanh' = 1 - tanh^2 = (1 + tanh)(1 - tanh)
-    #     dL_dS = np.tensordot(dL_dVS, self.V, axes=(2, 0))  # returns an NxTxH matrix
-    #     dL_dargTanh1 = np.tensordot(dL_dS, dS_dargTanh1, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-    #     dargTanh2_dU = np.tensordot(dS_dargTanh2, self.X, axes=((0, 1), (0, 1)))  # returns an HxD matrix
-    #     dL_dU = dL_dargTanh1.dot(dargTanh2_dU)
-    #     # New matrix U
-    #     Unew = self.U - c * dL_dU
-    #     # print('U aggiornato con dimensioni = ',Unew.shape)
-    #     # Evaluation of dLdW
-    #     dargTanh2_dW = np.tensordot(dS_dargTanh2, S0, axes=((0, 1), (0, 1)))  # returns an HxH matrix
-    #     dL_dW = dL_dargTanh1.dot(dargTanh2_dW)  # returns an HxH matrix
-    #     Wnew = self.W - c * dL_dW
-    #     # print('W aggiornato con dimensione = ',Wnew.shape)
-    #     '''
-    #
-    #     return (Vnew, Unew, Wnew)
+        Vnew = self.V + (self.alpha * delta_V - c * dL_dV) # - c * dL_dV
+        delta_V = self.alpha * delta_V - c * dL_dV
+        Unew = self.U + (self.alpha * delta_U - c * dL_dU) # - c * dL_dU
+        delta_U = self.alpha * delta_U - c * dL_dU
+        Wnew = self.W + (self.alpha * delta_W - c * dL_dW) # - c * dL_dW
+        delta_W = self.alpha * delta_W - c * dL_dW
+        return (Vnew, Unew, Wnew)
 
     def training(self, K, mini_batch_size):
         loss_train, loss_val = [], []
+        acc_train, acc_val = [], []
         idx_train = list(range(self.n_train))
         self.N = mini_batch_size
         n_mini_batches = self.n_train // self.N
@@ -261,6 +221,7 @@ class RNN:
             print('Epoch ', i, '/', K, ':')
             random.shuffle(idx_train)
             loss_t, loss_v = 0.0, 0.0
+            acc_t, acc_v = 0.0, 0.0
 
             # forward and backprop steps
             for j in range(n_mini_batches):
@@ -268,12 +229,15 @@ class RNN:
                 self.init_main_params([self.train[i] for i in idx_train[(j * self.N):((j + 1) * self.N)]])
                 self.S, self.O = self.forward(self.X, self.U, self.S, self.O)
                 self.V, self.U, self.W = self.backprop()
-                loss_t += self.loss()
+                loss_t += self.loss(self.n_train)
+                acc_t += self.accuracy()
                 # print('Loss: ', self.loss())
-            loss = loss_t/n_mini_batches
+            loss = -loss_t/n_mini_batches
+            acc = acc_t/n_mini_batches
             #print('Mean loss: ', loss)
             loss_train.append(loss)
-            print('    Loss: ', loss_t)
+            acc_train.append(acc)
+            print('    Loss: ', loss)
             # validation step
             print('Validation: ')
             for j in range(len(self.val) // self.N):
@@ -282,26 +246,32 @@ class RNN:
                 self.forward(self.X, self.U, self.S, self.O)
                 l = [len(a) for a in self.val]
                 #loss_v += self.loss()/(self.N * sum(l))
-                loss_v += self.loss()
-                print('Validation loss: ', self.loss())
+                loss_v += self.loss(len(self.val))
+                acc_v += self.accuracy()
+                # print('Validation loss: ', self.loss(len(self.val)))
                 print('Validation accuracy: ', self.accuracy())
             l = []
-            loss_val.append(loss_v/(len(self.val) // self.N))
+            # loss_val.append(loss_v/(len(self.val) // self.N))
+            loss = loss_v/(len(self.val) // self.N)
+            acc = acc_v/(len(self.val) // self.N)
+            print('Loss val: ', loss)
+            loss_val.append(loss)
+            acc_val.append(acc)
 
-        return loss_train, loss_val
+        return loss_train, loss_val, acc_train, acc_val
 
     def testing(self):
         self.init_main_params(self.test)
         self.forward(self.X, self.U, self.S, self.O)
         print('N = ', self.N)
-        loss_test = self.loss()
+        loss_test = self.loss(len(self.test))
         acc_test = self.accuracy()
         return loss_test, acc_test
 
     # Function that implements the softmax computation
     def softmax(self, s):
         # Softmax over 2D-matrix if D dimension is on axis = 0
-        s -= np.amax(s, axis=0)
+        #s -= np.amax(s, axis=0)
         s = np.exp(s)
         return s / np.sum(s, axis=0)
 
@@ -312,19 +282,39 @@ class RNN:
         return np.tanh(np.dot(U, x) + np.dot(self.W, s_prev)) # which verse of W am I using? which weights will be upgraded?
 
     # Function that implements the loss function computation
-    def loss(self):
+    def loss(self, n_phrases):
         '''
         o = o.transpose()
         a = -y*np.log(o)
         return a.sum()
         '''
         O_ = np.log(self.O)
-        #c = -1 /(self.N * self.T)
-        c = -1
-        return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
+        #c = -1 /(n_phrases * 10)
+        #c = -1
+        #return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
+        # We only care about our prediction of the "correct" words
+        correct_word_predictions = self.Y * O_
+        # Add to the loss based on how off we were
+        L = -np.sum(correct_word_predictions)
+        # res = -np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
+        #print('Equality of loss computations: ', L == res)
+        return L/(n_phrases * 10)
 
     def accuracy(self):
         O_ = self.O.argmax(axis=2)
         Y_ = self.Y.argmax(axis=2)
-        comp_res = Y_ == O_
-        return comp_res.sum() / (self.N * self.T)
+        acc = 0.0
+        acc_tot = 0.0
+        for i in range(self.N):
+            for j in range(self.T):
+                if Y_[i,j] == 0:
+                    acc_tot += acc / (j + 1)
+                    acc = 0.0
+                    break
+                else:
+                    acc += (Y_[i,j] == O_[i,j])
+
+
+        #comp_res = Y_ == O_
+        #return comp_res.sum() / (self.N * self.T)
+        return acc_tot/self.N
