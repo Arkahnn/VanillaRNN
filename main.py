@@ -10,7 +10,7 @@ if __name__ == "__main__":
     # Set a seed to test the network. After having tested it, you can take it out
     np.random.seed(256)
     random.seed(256)
-    K, eta, alpha, H_size, mini_batch_size = 16, 1e-4, 0.0, 101, 500
+    K, eta, alpha, H_size, mini_batch_size, t_prev = 300, 0.1, 0.9, 100, 500, 4
 
     print('Dataset creation')
     # Create dictionary
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     print('RNN initialization')
     # Initialize RNN
-    myRnn = VanillaRNN.RNN(dictionary, train, valid, test, H_size, eta, alpha)
+    myRnn = VanillaRNN.RNN(dictionary, train, valid, test, H_size, eta, alpha, t_prev)
 
     print('Train the RNN')
     # Train the RNN
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     t = list(range(len(acc_train)))
     # loss_train = loss_train/K
-    # plt.plot(t, acc_train, 'ro', label='Training Set')
+    plt.plot(t, acc_train, 'ro', label='Training Set')
     plt.plot(t, acc_val, 'g^', label='Validation Set')
     plt.xlabel('time')
     plt.ylabel('accuracy value')

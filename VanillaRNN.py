@@ -6,7 +6,7 @@ import tools
 
 class RNN:
 
-    def __init__(self, dictionary, train, val, test, H, eta, alpha):
+    def __init__(self, dictionary, train, val, test, H, eta, alpha, t_prev):
         self.dictionary, self.train, self.val, self.test = dictionary, train, val, test
 
         self.D = len(dictionary)
@@ -14,6 +14,7 @@ class RNN:
         self.T = max(len(s) for s in (train + val + test))
         self.H, self.eta, self.alpha = H, eta, alpha
         self.n_train = len(train)
+        self.t_prev = t_prev
         # self.bias = 0.33
         # print('Total number of phrases: ', self.N)
 
@@ -23,18 +24,18 @@ class RNN:
         wgtH = self.H ** (-0.5)
         wgtBias = random.uniform(-wgtH, wgtH)
 
-        # self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # Hx(D+1) matrix
-        # self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
-        # self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
+        self.U = np.random.uniform(-wgtD, wgtD, (self.H, self.D))  # Hx(D+1) matrix
+        self.W = np.random.uniform(-wgtH, wgtH, (self.H, self.H))  # HxH matrix
+        self.V = np.random.uniform(-wgtH, wgtH, (self.D, self.H))  # DxH matrix
 
-        # weight assignment with simple weights
-        self.U = np.random.randn(self.H, self.D) * 0.01
-        self.W = np.random.randn(self.H, self.H) * 0.01
-        self.V = np.random.randn(self.D, self.H) * 0.01
+        # # weight assignment with simple weights
+        # self.U = np.random.randn(self.H, self.D) * 0.01
+        # self.W = np.random.randn(self.H, self.H) * 0.01
+        # self.V = np.random.randn(self.D, self.H) * 0.01
 
-        self.U[-1,:] = wgtBias
-        self.V[:, -1] = wgtBias
-        self.W[:, -1] = wgtBias
+        # self.U[-1,:] = wgtBias
+        # self.V[:, -1] = wgtBias
+        # self.W[:, -1] = wgtBias
 
 
     def init_main_params(self, data):
@@ -52,10 +53,11 @@ class RNN:
 
         # Set S and O (hidden output and output)
         self.S = np.zeros((self.N, self.T, self.H))
-        self.S[:, :, -1] = 1.0
-        for c in data:
-            self.S[:, len(c):,-1] = 0.0
+        #
         self.O = np.zeros((self.N, self.T, self.D))
+        #self.S[:, :, -1] = 1.0
+        # for c in data:
+        #     self.S[:, len(c):,-1] = 0.0
 
     # forward step of the RNN
     def forward(self, X, U, S, O):
@@ -143,12 +145,30 @@ class RNN:
         #l = [len(a) for a in self.train]
         #c = self.eta/(self.N * sum(l))
 
-        Y1 = self.Y.nonzero()  # elements of Y different from zero
-        dL_dVS = self.Y
-        dL_dVS[Y1[0], Y1[1], Y1[2]] = self.O[Y1[0], Y1[1], Y1[2]] - 1
+        # Y1 = self.Y.nonzero()  # elements of Y different from zero
+        # dL_dVS = self.Y
+        # dL_dVS[Y1[0], Y1[1], Y1[2]] = self.O[Y1[0], Y1[1], Y1[2]] - 1
+        dL_dVS = (self.O * self.Y) - self.Y
 
         for n in range(self.N):
             for t in range(self.T):
+                # Versione del codice originale
+
+                dL_dV += np.outer(dL_dVS[n, t, :], self.S[n, t, :].T)
+                dL_dS = self.V.T.dot(dL_dVS[n, t, :])
+                if reLU:
+                    dL_dargTanh = (dL_dS > 0).astype(int)
+                else:
+                    dL_dargTanh = dL_dS * S2[n, t, :]
+                for t_i in range(t, t - self.t_prev, -1):
+                    dL_dU += np.outer(dL_dargTanh, self.X[n, t_i, :].T)
+                    if t_i == 0:
+                        h_prev = np.zeros((self.H))
+                        dL_dW += np.outer(dL_dargTanh, h_prev.T)
+                        break
+                    else:
+                        dL_dW += np.outer(dL_dargTanh, S0[n, t_i - 1, :].T)
+                        dL_dargTanh = self.W.T.dot(dL_dargTanh) * (1 - S0[n, t_i - 1, :] ** 2)
                 # Evaluation of dL/dV
                 # print('Evaluation of dL/dV')
                 # dL_dO = self.dLdO(self.Y[n, t, :], self.O[n, t, :]) # returns a NxD matrix
@@ -185,15 +205,7 @@ class RNN:
 
                 # print('W equality: ', np.array_equal(self.W, Wnew))
 
-                # Versione del codice originale
-                dL_dV += np.outer(dL_dVS[n, t, :], self.S[n, t, :].T)
-                dL_dS = self.V.T.dot(dL_dVS[n, t, :])
-                if reLU:
-                    dL_dargTanh = (dL_dS > 0).astype(int)
-                else:
-                    dL_dargTanh = dL_dS * S2[n, t, :]
-                dL_dU += np.outer(dL_dargTanh, self.X[n, t, :].T)
-                dL_dW += np.outer(dL_dargTanh, S0[n, t, :].T)
+
 
         Vnew = self.V + (self.alpha * delta_V - c * dL_dV) # - c * dL_dV
         delta_V = self.alpha * delta_V - c * dL_dV
@@ -201,6 +213,11 @@ class RNN:
         delta_U = self.alpha * delta_U - c * dL_dU
         Wnew = self.W + (self.alpha * delta_W - c * dL_dW) # - c * dL_dW
         delta_W = self.alpha * delta_W - c * dL_dW
+
+        Vnew = np.clip(Vnew, -5, 5)
+        Unew = np.clip(Unew, -5, 5)
+        Wnew = np.clip(Wnew, -5, 5)
+
         return (Vnew, Unew, Wnew)
 
     def training(self, K, mini_batch_size):
@@ -232,8 +249,10 @@ class RNN:
                 loss_t += self.loss(self.n_train)
                 acc_t += self.accuracy()
                 # print('Loss: ', self.loss())
-            loss = -loss_t/n_mini_batches
-            acc = acc_t/n_mini_batches
+            N = np.sum((len(y_i) for y_i in self.train))
+            # print('Number of elements in the training set: ', N)
+            loss = loss_t/ N # len(self.train)
+            acc = acc_t/ N # n_mini_batches
             #print('Mean loss: ', loss)
             loss_train.append(loss)
             acc_train.append(acc)
@@ -252,8 +271,9 @@ class RNN:
                 print('Validation accuracy: ', self.accuracy())
             l = []
             # loss_val.append(loss_v/(len(self.val) // self.N))
-            loss = loss_v/(len(self.val) // self.N)
-            acc = acc_v/(len(self.val) // self.N)
+            N = np.sum((len(y_i) for y_i in self.val))
+            loss = loss_v/ N # len(self.val) # (len(self.val) // self.N)
+            acc = acc_v/ N # len(self.val) # (len(self.val) // self.N)
             print('Loss val: ', loss)
             loss_val.append(loss)
             acc_val.append(acc)
@@ -289,26 +309,29 @@ class RNN:
         return a.sum()
         '''
         O_ = np.log(self.O)
+        O_[ ~np.isfinite(O_)] = 0.0
         #c = -1 /(n_phrases * 10)
         #c = -1
         #return c * np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
         # We only care about our prediction of the "correct" words
         correct_word_predictions = self.Y * O_
         # Add to the loss based on how off we were
-        L = -np.sum(correct_word_predictions)
+        L = -1.0 * np.sum(correct_word_predictions)
         # res = -np.tensordot(self.Y, O_, axes=((0, 1, 2), (0, 1, 2)))
         #print('Equality of loss computations: ', L == res)
-        return L/(n_phrases * 10)
+        return L #/(n_phrases * 10)
 
     def accuracy(self):
         O_ = self.O.argmax(axis=2)
         Y_ = self.Y.argmax(axis=2)
         acc = 0.0
         acc_tot = 0.0
-        for i in range(self.N):
+        # print('O_ size: ', O_.size())
+        N = np.shape(O_)[0]
+        for i in range(N):
             for j in range(self.T):
                 if Y_[i,j] == 0:
-                    acc_tot += acc / (j + 1)
+                    acc_tot += acc
                     acc = 0.0
                     break
                 else:
@@ -317,4 +340,4 @@ class RNN:
 
         #comp_res = Y_ == O_
         #return comp_res.sum() / (self.N * self.T)
-        return acc_tot/self.N
+        return acc_tot

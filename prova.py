@@ -42,7 +42,7 @@ def prova_init_param(aRnn, data):
     aRnn.O = np.zeros((aRnn.N, aRnn.T, aRnn.D))
 
 def printResults():
-    K, eta, alpha, H_size = 10, 0.9, 0.25, 101
+    K, eta, alpha, H_size, t_prev = 10, 0.9, 0.25, 100, 4
 
 
     print('Dataset creation')
@@ -51,7 +51,7 @@ def printResults():
 
     print('RNN initialization')
     # Initialize RNN
-    myRnn = RNN(dictionary, train, valid, test, H_size, eta, alpha)
+    myRnn = RNN(dictionary, train, valid, test, H_size, eta, alpha, t_prev)
     print('Dictionary dimension: ', len(myRnn.dictionary))
 
     V, U, W = import_matrix()
@@ -79,7 +79,7 @@ def printResults():
     # print(phrase10)
     # print(myRnn.test[10])
 
-    output = phrase_generator(myRnn, '<startW>')
+    output = phrase_generator(myRnn, 'your')
     print(output)
     # print('Test accuracy: ', myRnn.accuracy())
 
